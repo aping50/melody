@@ -1,0 +1,3158 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>音樂系專業二聲部聽寫出題與 WAV 工作站（8小節版）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,600;0,700;1,600;1,700&family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f3f0e8;
+      color: #1e293b;
+      overscroll-behavior-y: contain;
+    }
+
+    .font-score {
+      font-family: 'Crimson Pro', Georgia, 'Times New Roman', serif;
+    }
+
+    /* Warm Parchment Score Sheet */
+    .score-sheet {
+      background-color: #fdfbf7;
+      box-shadow: 0 10px 30px rgba(28, 25, 23, 0.08), 0 1px 3px rgba(28, 25, 23, 0.06);
+    }
+
+    /* Active Note Highlight during Web Audio Playback */
+    .note-group.active-note .notehead,
+    .note-group.active-note .note-stem,
+    .note-group.active-note .note-dot,
+    .note-group.active-note .note-flag {
+      fill: #dc2626 !important;
+      stroke: #dc2626 !important;
+    }
+
+    /* Print Stylesheet: Clean Conservatory A4 Exam & Answer Sheet */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 10mm 11mm;
+      }
+      body {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      #score-container {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .score-sheet {
+        background-color: #ffffff !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+      }
+      .playhead-line {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-12">
+
+  <!-- ===================================================================== -->
+  <!-- 1. TOP STUDIO HEADER BAR                                              -->
+  <!-- ===================================================================== -->
+  <header class="no-print sticky top-0 z-40 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-md border-b border-indigo-900/60">
+    <div class="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-2.5">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-400/35 flex items-center justify-center text-xl shadow-inner shrink-0 font-score">
+          𝄞
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-base sm:text-lg font-extrabold tracking-wide">單/二部旋律聽寫工作站</h1>
+            <span id="header-status-badge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-amber-200 border border-slate-700">
+              4/4 拍
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="generateNewExercise()" class="inline-flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-400 active:scale-95 text-white text-xs sm:text-sm font-extrabold px-3.5 py-2 rounded-xl shadow transition cursor-pointer">
+          <span>🎲 產出新題</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-3 sm:px-5 pt-4 space-y-3.5">
+
+    <!-- A. Meter, Key, Tie Density & Rhythm Block Pool Settings Bar -->
+    <section class="no-print bg-white rounded-2xl border border-stone-200/90 p-3.5 sm:p-4 shadow-sm space-y-3">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+        <!-- Time Signatures (3/4, 4/4, 6/8, 9/8) -->
+        <div class="lg:col-span-4 bg-stone-50/90 border border-stone-200/80 rounded-xl p-2.5 flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs font-extrabold text-slate-800">拍號選擇（單／複拍子）</span>
+            <span id="meter-type-pill" class="text-[10.5px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">單拍子（四分1拍）</span>
+          </div>
+          <div class="grid grid-cols-4 gap-1.5">
+            <button class="meter-btn py-1.5 rounded-lg text-sm font-extrabold border border-stone-200 bg-white hover:border-indigo-500 transition cursor-pointer" data-meter="3/4" onclick="selectMeter('3/4')">3/4</button>
+            <button class="meter-btn py-1.5 rounded-lg text-sm font-extrabold border border-indigo-600 bg-indigo-600 text-white shadow-2xs transition cursor-pointer" data-meter="4/4" onclick="selectMeter('4/4')">4/4</button>
+            <button class="meter-btn py-1.5 rounded-lg text-sm font-extrabold border border-stone-200 bg-white hover:border-teal-600 transition cursor-pointer" data-meter="6/8" onclick="selectMeter('6/8')">6/8</button>
+            <button class="meter-btn py-1.5 rounded-lg text-sm font-extrabold border border-stone-200 bg-white hover:border-teal-600 transition cursor-pointer" data-meter="9/8" onclick="selectMeter('9/8')">9/8</button>
+          </div>
+        </div>
+
+        <!-- Key Rotation / Selection & Tie Density -->
+        <div class="lg:col-span-5 bg-stone-50/90 border border-stone-200/80 rounded-xl p-2.5 flex flex-col justify-between gap-2">
+          <div class="flex items-center justify-between gap-2">
+            <label for="key-select" class="text-xs font-extrabold text-slate-800 shrink-0">調性設定（三升三降內）：</label>
+            <select id="key-select" onchange="selectKeyOption(this.value)" class="flex-1 text-xs font-bold text-slate-800 bg-white border border-stone-300 rounded-lg px-2.5 py-1.5 cursor-pointer">
+              <option value="auto" selected>🔄 自動輪換（每次換不同調性）</option>
+              <option value="C_major">C 大調</option>
+              <option value="a_minor">a 小調</option>
+              <option value="G_major">G 大調（1♯）</option>
+              <option value="e_minor">e 小調（1♯）</option>
+              <option value="D_major">D 大調（2♯）</option>
+              <option value="b_minor">b 小調（2♯）</option>
+              <option value="A_major">A 大調（3♯）</option>
+              <option value="f#_minor">f♯ 小調（3♯）</option>
+              <option value="F_major">F 大調（1♭）</option>
+              <option value="d_minor">d 小調（1♭）</option>
+              <option value="Bb_major">B♭ 大調（2♭）</option>
+              <option value="g_minor">g 小調（2♭）</option>
+              <option value="Eb_major">E♭ 大調（3♭）</option>
+              <option value="c_minor">c 小調（3♭）</option>
+            </select>
+          </div>
+
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-extrabold text-slate-800 shrink-0">連結線 (Tie)：</span>
+            <div class="grid grid-cols-3 gap-1.5 flex-1">
+              <button id="tie-btn-none" onclick="setTieMode('none')" class="py-1 rounded-lg text-xs font-extrabold border border-stone-200 bg-white text-slate-700 hover:border-indigo-500 transition cursor-pointer">無</button>
+              <button id="tie-btn-low" onclick="setTieMode('low')" class="py-1 rounded-lg text-xs font-extrabold border border-stone-200 bg-white text-slate-700 hover:border-indigo-500 transition cursor-pointer">少（1–2）</button>
+              <button id="tie-btn-medium" onclick="setTieMode('medium')" class="py-1 rounded-lg text-xs font-extrabold border border-indigo-600 bg-indigo-600 text-white shadow-2xs transition cursor-pointer">中（2–5）</button>
+            </div>
+            <span id="tie-mode-label" class="text-[11px] font-extrabold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded shrink-0">中高（2–5 處）</span>
+          </div>
+        </div>
+
+        <!-- Question / Answer Sheet Mode Switch -->
+        <div class="lg:col-span-3 bg-stone-50/90 border border-stone-200/80 rounded-xl p-2.5 flex flex-col justify-between">
+          <span class="text-xs font-extrabold text-slate-800 mb-1.5">譜面檢視模式</span>
+          <div class="grid grid-cols-2 gap-1.5 bg-stone-200/70 p-1 rounded-xl">
+            <button id="mode-btn-question" onclick="setSheetMode('question')" class="py-1.5 px-2 rounded-lg text-xs font-extrabold bg-white text-slate-900 shadow-2xs transition cursor-pointer">
+              📝 題目卷
+            </button>
+            <button id="mode-btn-answer" onclick="setSheetMode('answer')" class="py-1.5 px-2 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer">
+              ✅ 解答卷
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rhythm Block Pool Summary & Expand Drawer Button -->
+      <div class="pt-2.5 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <span id="block-lib-summary" class="text-xs font-extrabold text-slate-700">
+            已啟用單拍子 16 / 16 種積木（不含32分音符；不含六連音）
+          </span>
+          <button onclick="bulkSelectBlocks('all')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-stone-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-stone-200 transition cursor-pointer">
+            全選本類
+          </button>
+          <button onclick="bulkSelectBlocks('default')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-stone-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-stone-200 transition cursor-pointer">
+            常用基礎
+          </button>
+        </div>
+
+        <button id="btn-toggle-blocks" onclick="toggleBlockLibrary()" class="px-3 py-1 rounded-lg text-xs font-extrabold bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 transition cursor-pointer">
+          <span>展開積木庫 ▼</span>
+        </button>
+      </div>
+
+      <!-- Collapsible Rhythm Block Grid (Hidden by default for clean focus, expandable anytime) -->
+      <div id="rhythm-block-drawer" class="hidden pt-3 border-t border-stone-200 space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-extrabold text-slate-800">勾選要納入自動出題的節奏積木</span>
+            <span class="text-[11px] text-slate-500">（嚴格排除 32 分音符；單拍子不含六連音，複拍子不含四連音）</span>
+          </div>
+          <div class="inline-flex bg-stone-100 p-0.5 rounded-xl border border-stone-200">
+            <button id="drawer-tab-simple" onclick="switchDrawerTab('simple')" class="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-indigo-600 text-white shadow-2xs transition cursor-pointer">
+              🎵 單拍子積木 (3/4 · 4/4，共16種)
+            </button>
+            <button id="drawer-tab-compound" onclick="switchDrawerTab('compound')" class="px-2.5 py-1 rounded-lg text-xs font-extrabold text-slate-600 hover:text-slate-900 transition cursor-pointer">
+              🎶 複拍子積木 (6/8 · 9/8，共21種)
+            </button>
+          </div>
+        </div>
+        <div id="rhythm-block-grid" class="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 gap-1.5"></div>
+      </div>
+    </section>
+
+    <!-- B. Multi-Voice & Multi-Section Audio Player + WAV Export Bar -->
+    <section class="no-print bg-white rounded-2xl border border-stone-200/90 p-3.5 shadow-sm space-y-2.5">
+      <div class="flex flex-wrap items-center justify-between gap-2.5">
+        <!-- Mode Switch (Two-Voice vs Single-Melody) + Voice/Clef Controls & Bass Boost -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="inline-flex bg-stone-100 p-0.5 rounded-xl border border-stone-200">
+            <button id="music-mode-btn-two_voice" onclick="setMusicMode('two_voice')" class="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-indigo-600 text-white shadow-2xs transition cursor-pointer">
+              🎼 二聲部模式
+            </button>
+            <button id="music-mode-btn-single_melody" onclick="setMusicMode('single_melody')" class="px-2.5 py-1 rounded-lg text-xs font-extrabold text-slate-600 hover:text-slate-900 transition cursor-pointer">
+              🎵 單旋律模式
+            </button>
+          </div>
+
+          <!-- Two-Voice Mode Controls -->
+          <div id="two-voice-controls" class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-extrabold text-slate-700">聲部勾選：</span>
+            <label id="lbl-voice-soprano" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border border-indigo-600 bg-indigo-50 text-indigo-950 shadow-2xs transition cursor-pointer select-none">
+              <input type="checkbox" id="chk-voice-soprano" checked onchange="toggleVoiceCheck('soprano', this.checked)" class="w-3.5 h-3.5 accent-indigo-600 cursor-pointer" />
+              <span>高音 (Soprano)</span>
+            </label>
+            <label id="lbl-voice-bass" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border border-indigo-600 bg-indigo-50 text-indigo-950 shadow-2xs transition cursor-pointer select-none">
+              <input type="checkbox" id="chk-voice-bass" checked onchange="toggleVoiceCheck('bass', this.checked)" class="w-3.5 h-3.5 accent-indigo-600 cursor-pointer" />
+              <span>低音 (Bass)</span>
+            </label>
+
+            <label id="lbl-bass-boost" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border border-stone-200 bg-stone-50 text-slate-700 hover:border-amber-500 transition cursor-pointer select-none" title="提高低音聲部音量與中低頻泛音清晰度，適合大教室喇叭或筆電播放">
+              <input type="checkbox" id="chk-bass-boost" onchange="toggleBassBoost(this.checked)" class="w-3.5 h-3.5 accent-amber-600 cursor-pointer" />
+              <span>🔊 低音略加強模式</span>
+            </label>
+          </div>
+
+          <!-- Single-Melody Mode Controls (Clef + Clef-Specific Timbre) -->
+          <div id="single-melody-controls" class="hidden flex-wrap items-center gap-2">
+            <span class="text-xs font-extrabold text-slate-700">譜號：</span>
+            <button id="single-clef-btn-treble" onclick="selectSingleClef('treble')" class="px-2.5 py-1.5 rounded-lg text-xs font-extrabold border border-indigo-600 bg-indigo-600 text-white shadow-2xs transition cursor-pointer">
+              𝄞 高音譜
+            </button>
+            <button id="single-clef-btn-bass" onclick="selectSingleClef('bass')" class="px-2.5 py-1.5 rounded-lg text-xs font-extrabold border border-stone-200 bg-white text-slate-700 hover:border-indigo-500 transition cursor-pointer">
+              𝄢 低音譜
+            </button>
+
+            <span class="text-xs font-extrabold text-slate-700 ml-1">單旋律音色：</span>
+            <div id="single-timbre-buttons" class="flex items-center gap-1"></div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Two-Voice Timbre Version Selector -->
+          <div id="two-voice-timbre-box" class="flex items-center gap-1">
+            <span class="text-xs font-extrabold text-slate-600 mr-0.5">音色版本：</span>
+            <button id="timbre-btn-piano" onclick="selectTimbre('piano')" class="px-2.5 py-1.5 rounded-lg text-xs font-extrabold border border-indigo-600 bg-indigo-600 text-white shadow-2xs transition cursor-pointer">
+              🎹 鋼琴
+            </button>
+            <button id="timbre-btn-oboe_cello" onclick="selectTimbre('oboe_cello')" class="px-2.5 py-1.5 rounded-lg text-xs font-extrabold border border-stone-200 bg-white text-slate-700 hover:border-indigo-500 transition cursor-pointer">
+              🎻 雙簧管＋大提琴
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Segmented Measure Range, Tempo Slider & Play/Stop Controls -->
+      <div class="pt-2.5 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2.5">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs font-extrabold text-slate-700 mr-0.5">播放範圍：</span>
+          <button class="range-btn px-2.5 py-1.5 rounded-xl text-xs font-extrabold border border-teal-600 bg-teal-600 text-white shadow-2xs transition cursor-pointer" data-range="1-8" onclick="selectRangeMode('1-8')">全曲 1–8</button>
+          <button class="range-btn px-2.5 py-1.5 rounded-xl text-xs font-extrabold border border-stone-200 bg-stone-50 text-slate-700 hover:border-teal-600 transition cursor-pointer" data-range="1-2" onclick="selectRangeMode('1-2')">1–2 小節</button>
+          <button class="range-btn px-2.5 py-1.5 rounded-xl text-xs font-extrabold border border-stone-200 bg-stone-50 text-slate-700 hover:border-teal-600 transition cursor-pointer" data-range="3-4" onclick="selectRangeMode('3-4')">3–4 小節</button>
+          <button class="range-btn px-2.5 py-1.5 rounded-xl text-xs font-extrabold border border-stone-200 bg-stone-50 text-slate-700 hover:border-teal-600 transition cursor-pointer" data-range="5-6" onclick="selectRangeMode('5-6')">5–6 小節</button>
+          <button class="range-btn px-2.5 py-1.5 rounded-xl text-xs font-extrabold border border-stone-200 bg-stone-50 text-slate-700 hover:border-teal-600 transition cursor-pointer" data-range="7-8" onclick="selectRangeMode('7-8')">7–8 小節</button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center gap-1.5 bg-stone-50 border border-stone-200 px-2.5 py-1.5 rounded-xl">
+            <span id="bpm-unit-label" class="text-xs font-extrabold text-slate-700">♩ =</span>
+            <input id="bpm-slider" type="range" min="40" max="140" step="1" value="68" oninput="updateBpm(this.value)" class="w-24 accent-indigo-600 cursor-pointer" />
+            <span id="bpm-val" class="text-xs font-black text-slate-900 min-w-[26px] text-right">68</span>
+          </div>
+
+          <button id="btn-play" onclick="startPlayback()" class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs sm:text-sm font-extrabold px-4 py-2 rounded-xl shadow transition cursor-pointer">
+            <span>▶ 播放選定片段</span>
+          </button>
+
+          <button id="btn-stop" onclick="stopPlayback()" disabled class="inline-flex items-center gap-1 bg-rose-50 hover:bg-rose-100 disabled:opacity-40 text-rose-700 border border-rose-200 text-xs sm:text-sm font-bold px-3 py-2 rounded-xl transition cursor-pointer">
+            <span>■ 停止</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- 3. PUBLICATION-GRADE 8-BAR SCORE SHEET (GRAND STAFF OR SINGLE STAFF)   -->
+    <!-- ===================================================================== -->
+    <!-- 3. PUBLICATION-GRADE 8-BAR GRAND STAFF SCORE SHEET                    -->
+    <!-- ===================================================================== -->
+    <div id="score-container" class="pt-1">
+      <section class="score-sheet rounded-2xl border-2 border-stone-300/90 p-4 sm:p-7">
+
+        <!-- Exam Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b-2 border-stone-800 pb-3 mb-3 gap-2">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <h2 id="sheet-main-title" class="text-lg sm:text-xl font-black tracking-wide text-slate-900">
+              二聲部調性聽寫測驗卷（學生題目卷）
+            </h2>
+            <span id="sheet-format-badge" class="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-slate-900 text-amber-200">
+              8 小節 · 四行大譜表
+            </span>
+          </div>
+
+          <div class="no-print flex items-center gap-2">
+            <span id="sheet-play-count-badge" class="text-xs font-extrabold px-3 py-1 rounded-full bg-indigo-50 text-indigo-900 border border-indigo-200">
+              🔊 累計播放：第 0 次
+            </span>
+          </div>
+        </div>
+
+        <!-- Harmonic Structure Roadmap (Visible in Answer Key Mode) -->
+        <div id="answer-roadmap-box" class="hidden mb-3 rounded-xl bg-indigo-50/80 border border-indigo-200 px-3.5 py-2.5 text-xs text-slate-800">
+          <div class="font-extrabold text-indigo-950 mb-1">【教師解答卷・8小節曲式與遠系轉調分析】</div>
+          <div id="answer-roadmap-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 leading-relaxed"></div>
+        </div>
+
+        <!-- 4-System × 2-Measure Score SVG -->
+        <div class="w-full overflow-x-auto">
+          <svg id="grand-staff-svg" viewBox="0 0 1120 1040" class="w-full h-auto block select-none" role="img" aria-label="8小節聽寫樂譜"></svg>
+        </div>
+
+        <!-- Sheet Footer -->
+        <div class="mt-3 pt-2 border-t border-stone-300 flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-500">
+          <span id="sheet-footer-desc">作答說明：第 1、8 小節完整提供高低聲部；第 2–7 小節隨機提供高低音各 1 全小節與 2 半小節提示（三拍子與 9/8 拍為兩大拍），其餘由學生聽寫完成。</span>
+          <span id="sheet-code-footer" class="font-mono text-slate-400">CODE: —</span>
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="no-print fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <script>
+    /* =========================================================================
+       1. EXACT RHYTHM BLOCK VOCABULARY (NO 32ND NOTES, NO SEXTUPLETS IN SIMPLE, NO QUADRUPLETS IN COMPOUND)
+       ========================================================================= */
+    const METERS = {
+      '3/4': { num: 3, den: 4, type: 'simple',   beats: 3, pulseLabel: '四分音符' },
+      '4/4': { num: 4, den: 4, type: 'simple',   beats: 4, pulseLabel: '四分音符' },
+      '6/8': { num: 6, den: 8, type: 'compound', beats: 2, pulseLabel: '附點四分音符' },
+      '9/8': { num: 9, den: 8, type: 'compound', beats: 3, pulseLabel: '附點四分音符' }
+    };
+
+    const RHYTHM_BLOCKS = [
+      // ==================== SIMPLE METERS (3/4, 4/4) — 16 BLOCKS ====================
+      { id: 's_1beat',     meterType: 'simple', name: '四分音符',   beats: 1, durs: [1],                        tuplet: null, defaultOn: true,  basic: true },
+      { id: 's_2even',     meterType: 'simple', name: '二八分',     beats: 1, durs: [0.5, 0.5],                 tuplet: null, defaultOn: true,  basic: true },
+      { id: 's_4even',     meterType: 'simple', name: '四十六分',   beats: 1, durs: [0.25, 0.25, 0.25, 0.25],   tuplet: null, defaultOn: true,  basic: true },
+      { id: 's_8_16_16',   meterType: 'simple', name: '前八後十六', beats: 1, durs: [0.5, 0.25, 0.25],          tuplet: null, defaultOn: true,  basic: false },
+      { id: 's_16_16_8',   meterType: 'simple', name: '前十六後八', beats: 1, durs: [0.25, 0.25, 0.5],          tuplet: null, defaultOn: true,  basic: false },
+      { id: 's_16_8_16',   meterType: 'simple', name: '單拍小切分', beats: 1, durs: [0.25, 0.5, 0.25],          tuplet: null, defaultOn: true,  basic: false },
+      { id: 's_dot8_16',   meterType: 'simple', name: '前附點',     beats: 1, durs: [0.75, 0.25],               tuplet: null, defaultOn: true,  basic: false },
+      { id: 's_16_dot8',   meterType: 'simple', name: '後附點',     beats: 1, durs: [0.25, 0.75],               tuplet: null, defaultOn: true,  basic: false },
+      { id: 's_trip_even', meterType: 'simple', name: '均分三連音', beats: 1, durs: [1/3, 1/3, 1/3],            tuplet: 3,    defaultOn: true,  basic: false },
+      { id: 's_trip_q_8',  meterType: 'simple', name: '前長三連音', beats: 1, durs: [2/3, 1/3],                 tuplet: 3,    defaultOn: true,  basic: false },
+      { id: 's_trip_8_q',  meterType: 'simple', name: '後長三連音', beats: 1, durs: [1/3, 2/3],                 tuplet: 3,    defaultOn: true,  basic: false },
+      { id: 's_2beat',     meterType: 'simple', name: '二分音符',   beats: 2, durs: [2],                        tuplet: null, defaultOn: true,  basic: true,  isMultiBeat: true },
+      { id: 's_2b_dot',    meterType: 'simple', name: '大附點',     beats: 2, durs: [1.5, 0.5],                 tuplet: null, defaultOn: true,  basic: false, isMultiBeat: true },
+      { id: 's_2b_backdot',meterType: 'simple', name: '大後附點',   beats: 2, durs: [0.5, 1.5],                 tuplet: null, defaultOn: true,  basic: false, isMultiBeat: true },
+      { id: 's_2b_sync',   meterType: 'simple', name: '跨拍切分',   beats: 2, durs: [0.5, 1.0, 0.5],            tuplet: null, defaultOn: true,  basic: false, isMultiBeat: true },
+      { id: 's_3beat',     meterType: 'simple', name: '附點二分',   beats: 3, durs: [3],                        tuplet: null, defaultOn: true,  basic: false, isMultiBeat: true },
+
+      // ==================== COMPOUND METERS (6/8, 9/8) — 21 BLOCKS ====================
+      { id: 'c_1beat',          meterType: 'compound', name: '附點四分',       beats: 1, durs: [1],                             tuplet: null, defaultOn: true, basic: true },
+      { id: 'c_3even',          meterType: 'compound', name: '三個八分',       beats: 1, durs: [1/3, 1/3, 1/3],                 tuplet: null, defaultOn: true, basic: true },
+      { id: 'c_q_8',            meterType: 'compound', name: '四分+八分',      beats: 1, durs: [2/3, 1/3],                      tuplet: null, defaultOn: true, basic: true },
+      { id: 'c_8_q',            meterType: 'compound', name: '八分+四分',      beats: 1, durs: [1/3, 2/3],                      tuplet: null, defaultOn: true, basic: true },
+      { id: 'c_march',          meterType: 'compound', name: '附點八+16+八',   beats: 1, durs: [0.5, 1/6, 1/3],                 tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_backdot',        meterType: 'compound', name: '八+附點八+16',   beats: 1, durs: [1/3, 0.5, 1/6],                 tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_8_16_dot8',      meterType: 'compound', name: '八+16+附點八',   beats: 1, durs: [1/3, 1/6, 0.5],                 tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_16_16_8_8',      meterType: 'compound', name: '雙十六+兩八',    beats: 1, durs: [1/6, 1/6, 1/3, 1/3],            tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_8_16_16_8',      meterType: 'compound', name: '八+雙十六+八',   beats: 1, durs: [1/3, 1/6, 1/6, 1/3],            tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_8_8_16_16',      meterType: 'compound', name: '兩八+雙十六',    beats: 1, durs: [1/3, 1/3, 1/6, 1/6],            tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_dot8_16x3_p1',   meterType: 'compound', name: '附點八+三16',    beats: 1, durs: [0.5, 1/6, 1/6, 1/6],            tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_dot8_16x3_p2',   meterType: 'compound', name: '16+附點八+雙16', beats: 1, durs: [1/6, 0.5, 1/6, 1/6],            tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_dot8_16x3_p3',   meterType: 'compound', name: '雙16+附點八+16', beats: 1, durs: [1/6, 1/6, 0.5, 1/6],            tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_dot8_16x3_p4',   meterType: 'compound', name: '三16+附點八',    beats: 1, durs: [1/6, 1/6, 1/6, 0.5],            tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_8_16x4_p1',      meterType: 'compound', name: '八+四16',        beats: 1, durs: [1/3, 1/6, 1/6, 1/6, 1/6],       tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_8_16x4_p2',      meterType: 'compound', name: '16+八+三16',     beats: 1, durs: [1/6, 1/3, 1/6, 1/6, 1/6],       tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_8_16x4_p3',      meterType: 'compound', name: '雙16+八+雙16',   beats: 1, durs: [1/6, 1/6, 1/3, 1/6, 1/6],       tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_8_16x4_p4',      meterType: 'compound', name: '三16+八+16',     beats: 1, durs: [1/6, 1/6, 1/6, 1/3, 1/6],       tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_8_16x4_p5',      meterType: 'compound', name: '四16+八',        beats: 1, durs: [1/6, 1/6, 1/6, 1/6, 1/3],       tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_6x16',           meterType: 'compound', name: '六個十六分',     beats: 1, durs: [1/6, 1/6, 1/6, 1/6, 1/6, 1/6],  tuplet: null, defaultOn: true, basic: false },
+      { id: 'c_duplet',         meterType: 'compound', name: '二連音',         beats: 1, durs: [0.5, 0.5],                      tuplet: 2,    defaultOn: true, basic: false }
+    ];
+
+    function getWrittenQuarters(beatDur, tuplet, meterObj) {
+      const scale = meterObj.den === 8 ? 1.5 : 1.0;
+      let tupletRatio = 1.0;
+      if (tuplet === 3) tupletRatio = 3 / 2;
+      else if (tuplet === 2) tupletRatio = 2 / 3;
+      return beatDur * scale * tupletRatio;
+    }
+
+    function writtenQuartersToVisual(wq) {
+      const eps = 0.005;
+      if (Math.abs(wq - 4.0) < eps)  return { head: 'whole',   stem: false, dots: 0, beams: 0 };
+      if (Math.abs(wq - 3.0) < eps)  return { head: 'half',    stem: true,  dots: 1, beams: 0 };
+      if (Math.abs(wq - 2.0) < eps)  return { head: 'half',    stem: true,  dots: 0, beams: 0 };
+      if (Math.abs(wq - 1.5) < eps)  return { head: 'quarter', stem: true,  dots: 1, beams: 0 };
+      if (Math.abs(wq - 1.0) < eps)  return { head: 'quarter', stem: true,  dots: 0, beams: 0 };
+      if (Math.abs(wq - 0.75) < eps) return { head: 'solid',   stem: true,  dots: 1, beams: 1 };
+      if (Math.abs(wq - 0.5) < eps)  return { head: 'solid',   stem: true,  dots: 0, beams: 1 };
+      if (Math.abs(wq - 0.25) < eps) return { head: 'solid',   stem: true,  dots: 0, beams: 2 };
+      return { head: 'solid', stem: true, dots: 0, beams: 0 };
+    }
+
+    /* =========================================================================
+       2. KEYS, PITCH SPELLING & HARMONIC COUNTERPOINT ENGINE
+       ========================================================================= */
+    const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    const NATURAL_PC = [0, 2, 4, 5, 7, 9, 11];
+
+    const KEY_POOL = [
+      { id: 'C_major',  name: 'C 大調',  tonicStep: 0, tonicAlter:  0, mode: 'major', sigType: 'none',  sigCount: 0, modTargets: ['Eb_major', 'E_major', 'a_minor', 'Ab_major_local'] },
+      { id: 'a_minor',  name: 'a 小調',  tonicStep: 5, tonicAlter:  0, mode: 'minor', sigType: 'none',  sigCount: 0, modTargets: ['C_major', 'c_minor', 'E_major', 'F_major'] },
+      { id: 'G_major',  name: 'G 大調',  tonicStep: 4, tonicAlter:  0, mode: 'major', sigType: 'sharp', sigCount: 1, modTargets: ['Bb_major', 'b_minor', 'e_minor', 'Eb_major'] },
+      { id: 'e_minor',  name: 'e 小調',  tonicStep: 2, tonicAlter:  0, mode: 'minor', sigType: 'sharp', sigCount: 1, modTargets: ['G_major', 'g_minor', 'b_minor', 'C_major'] },
+      { id: 'D_major',  name: 'D 大調',  tonicStep: 1, tonicAlter:  0, mode: 'major', sigType: 'sharp', sigCount: 2, modTargets: ['F_major', 'b_minor', 'f#_minor', 'Bb_major'] },
+      { id: 'b_minor',  name: 'b 小調',  tonicStep: 6, tonicAlter:  0, mode: 'minor', sigType: 'sharp', sigCount: 2, modTargets: ['D_major', 'd_minor', 'f#_minor', 'G_major'] },
+      { id: 'A_major',  name: 'A 大調',  tonicStep: 5, tonicAlter:  0, mode: 'major', sigType: 'sharp', sigCount: 3, modTargets: ['C_major', 'f#_minor', 'F_major', 'c#_minor_local'] },
+      { id: 'f#_minor', name: 'f♯ 小調', tonicStep: 3, tonicAlter:  1, mode: 'minor', sigType: 'sharp', sigCount: 3, modTargets: ['A_major', 'a_minor', 'D_major', 'b_minor'] },
+      { id: 'F_major',  name: 'F 大調',  tonicStep: 3, tonicAlter:  0, mode: 'major', sigType: 'flat',  sigCount: 1, modTargets: ['A_major', 'd_minor', 'Ab_major_local', 'Db_major_local'] },
+      { id: 'd_minor',  name: 'd 小調',  tonicStep: 1, tonicAlter:  0, mode: 'minor', sigType: 'flat',  sigCount: 1, modTargets: ['F_major', 'f_minor_local', 'Bb_major', 'A_major'] },
+      { id: 'Bb_major', name: 'B♭ 大調', tonicStep: 6, tonicAlter: -1, mode: 'major', sigType: 'flat',  sigCount: 2, modTargets: ['D_major', 'g_minor', 'Gb_major_local', 'c_minor'] },
+      { id: 'g_minor',  name: 'g 小調',  tonicStep: 4, tonicAlter:  0, mode: 'minor', sigType: 'flat',  sigCount: 2, modTargets: ['Bb_major', 'e_minor', 'Eb_major', 'c_minor'] },
+      { id: 'Eb_major', name: 'E♭ 大調', tonicStep: 2, tonicAlter: -1, mode: 'major', sigType: 'flat',  sigCount: 3, modTargets: ['G_major', 'c_minor', 'Ab_major_local', 'b_minor'] },
+      { id: 'c_minor',  name: 'c 小調',  tonicStep: 0, tonicAlter:  0, mode: 'minor', sigType: 'flat',  sigCount: 3, modTargets: ['Eb_major', 'E_major', 'Ab_major_local', 'g_minor'] }
+    ];
+
+    const EXTRA_MOD_KEYS = {
+      'E_major':        { id: 'E_major',        name: 'E 大調',  tonicStep: 2, tonicAlter:  0, mode: 'major', sigType: 'sharp', sigCount: 4 },
+      'c#_minor_local': { id: 'c#_minor_local', name: 'c♯ 小調', tonicStep: 0, tonicAlter:  1, mode: 'minor', sigType: 'sharp', sigCount: 4 },
+      'Ab_major_local': { id: 'Ab_major_local', name: 'A♭ 大調', tonicStep: 5, tonicAlter: -1, mode: 'major', sigType: 'flat',  sigCount: 4 },
+      'f_minor_local':  { id: 'f_minor_local',  name: 'f 小調',  tonicStep: 3, tonicAlter:  0, mode: 'minor', sigType: 'flat',  sigCount: 4 },
+      'Db_major_local': { id: 'Db_major_local', name: 'D♭ 大調', tonicStep: 1, tonicAlter: -1, mode: 'major', sigType: 'flat',  sigCount: 5 },
+      'Gb_major_local': { id: 'Gb_major_local', name: 'G♭ 大調', tonicStep: 4, tonicAlter: -1, mode: 'major', sigType: 'flat',  sigCount: 6 }
+    };
+
+    function getKeyDef(id) {
+      return KEY_POOL.find(k => k.id === id) || EXTRA_MOD_KEYS[id] || KEY_POOL[0];
+    }
+
+    function buildKeyScale(keyDef) {
+      const intervals = keyDef.mode === 'major'
+        ? [0, 2, 4, 5, 7, 9, 11]
+        : [0, 2, 3, 5, 7, 8, 10];
+      const tonicPc = (NATURAL_PC[keyDef.tonicStep] + keyDef.tonicAlter + 12) % 12;
+      const scale = [];
+      for (let deg = 0; deg < 7; deg++) {
+        const step = (keyDef.tonicStep + deg) % 7;
+        const targetPc = (tonicPc + intervals[deg]) % 12;
+        let alter = targetPc - NATURAL_PC[step];
+        if (alter > 6) alter -= 12;
+        if (alter < -6) alter += 12;
+        scale.push({ step, letter: LETTERS[step], alter, pc: targetPc });
+      }
+      return scale;
+    }
+
+    function createDegreePitch(scale, degreeIndex, targetMidi, chromaticShift = 0) {
+      const deg = ((degreeIndex % 7) + 7) % 7;
+      const base = scale[deg];
+      const alter = base.alter + chromaticShift;
+      let bestOct = Math.floor(targetMidi / 12) - 1;
+      let bestMidi = (bestOct + 1) * 12 + NATURAL_PC[base.step] + alter;
+      for (let oct = bestOct - 1; oct <= bestOct + 1; oct++) {
+        const m = (oct + 1) * 12 + NATURAL_PC[base.step] + alter;
+        if (Math.abs(m - targetMidi) < Math.abs(bestMidi - targetMidi)) {
+          bestMidi = m;
+          bestOct = oct;
+        }
+      }
+      return {
+        step: base.step,
+        letter: base.letter,
+        alter,
+        oct: bestOct,
+        midi: bestMidi,
+        deg
+      };
+    }
+
+    function clampPitchRange(p, minMidi, maxMidi) {
+      const res = { ...p };
+      while (res.midi < minMidi) { res.oct += 1; res.midi += 12; }
+      while (res.midi > maxMidi) { res.oct -= 1; res.midi -= 12; }
+      return res;
+    }
+
+    function pickRandom(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    /* =========================================================================
+       3. 8-BAR TWO-VOICE COUNTERPOINT & MODULATION COMPOSER
+       ========================================================================= */
+    function isSustainedLongNote(note, meterObj) {
+      // Strictly longer than half note (> 2.0 written quarters) in simple meters,
+      // or strictly longer than dotted quarter (> 1.5 written quarters) in compound meters.
+      const wq = getWrittenQuarters(note.dur, note.tuplet, meterObj);
+      const threshold = meterObj.type === 'compound' ? 1.5 : 2.0;
+      return wq > threshold + 0.005;
+    }
+
+    function isUnevenTripletBlock(blk) {
+      // Quarter+eighth or eighth+quarter triplet ([2/3, 1/3] or [1/3, 2/3] with tuplet === 3)
+      return blk.tuplet === 3 && blk.durs.length === 2;
+    }
+
+    function classifyBeatDivision(blk) {
+      // Returns 'triple', 'duple', or 'single' for 2-against-3 cross-rhythm tracking
+      if (blk.tuplet === 3) return 'triple';
+      if (blk.tuplet === 2) return 'duple';
+      if (blk.durs.length === 1) return 'single';
+      // In simple meters, 2 eighths / 4 sixteenths / dotted8+16 etc. are duple subdivisions
+      if (blk.meterType === 'simple') return 'duple';
+      // In compound meters, 3 eighths / quarter+eighth / 6 sixteenths etc. are triple subdivisions
+      return 'triple';
+    }
+
+    function composeEightBarExercise() {
+      const meter = METERS[state.meter];
+      const isCompound = meter.type === 'compound';
+      const maxLongNotesTotal = 3;
+      const maxUnevenTripletsTotal = 2;
+      const maxTwoAgainstThreeTotal = 2;
+
+      // 1. Select Home Key (rotate among 14 keys when 'auto')
+      let homeKey;
+      if (state.selectedKeyId === 'auto') {
+        const candidates = KEY_POOL.filter(k => k.id !== state.previousKeyId);
+        homeKey = pickRandom(candidates);
+      } else {
+        homeKey = getKeyDef(state.selectedKeyId);
+      }
+
+      // 2. Select Contrasting / Distant Modulation Key for Bars 3–6
+      const modKey = getKeyDef(pickRandom(homeKey.modTargets));
+      const homeScale = buildKeyScale(homeKey);
+      const modScale = buildKeyScale(modKey);
+
+      // 3. Enabled Rhythm Blocks for this meter
+      const enabledPool = RHYTHM_BLOCKS.filter(b =>
+        b.meterType === meter.type &&
+        b.beats <= meter.beats + 0.001 &&
+        state.enabledBlockIds.has(b.id)
+      );
+      const fallbackPool = RHYTHM_BLOCKS.filter(b =>
+        b.meterType === meter.type &&
+        b.beats <= meter.beats + 0.001 &&
+        b.basic
+      );
+      const pool = enabledPool.length > 0 ? enabledPool : fallbackPool;
+      const oneBeatActivePool = pool.filter(b => b.beats === 1 && b.durs.length >= 2);
+      const oneBeatCalmPool = pool.filter(b => b.beats === 1 && b.durs.length <= 2 && !b.isMultiBeat);
+
+      let longNoteCount = 0;
+      let unevenTripletCount = 0;
+      let twoAgainstThreeCount = 0;
+
+      function blockHasLongNote(blk) {
+        return blk.durs.some(d => isSustainedLongNote({ dur: d, tuplet: blk.tuplet }, meter));
+      }
+
+      function getBeatDivisionMap(blockList) {
+        const divMap = [];
+        blockList.forEach(blk => {
+          const div = classifyBeatDivision(blk);
+          for (let b = 0; b < blk.beats; b++) {
+            divMap.push(div);
+          }
+        });
+        return divMap;
+      }
+
+      function countCrossRhythmsBetween(sopBlocks, bassBlocks) {
+        const sDiv = getBeatDivisionMap(sopBlocks);
+        const bDiv = getBeatDivisionMap(bassBlocks);
+        let cross = 0;
+        for (let b = 0; b < meter.beats; b++) {
+          if ((sDiv[b] === 'triple' && bDiv[b] === 'duple') ||
+              (sDiv[b] === 'duple' && bDiv[b] === 'triple')) {
+            cross++;
+          }
+        }
+        return cross;
+      }
+
+      function canUseBlock(blk, otherVoiceLongAtBar, localBlocks, otherDivMap, beatStart) {
+        if (blockHasLongNote(blk)) {
+          if (longNoteCount >= maxLongNotesTotal) return false;
+          if (otherVoiceLongAtBar || localBlocks.some(blockHasLongNote)) return false;
+        }
+        if (isUnevenTripletBlock(blk)) {
+          if (unevenTripletCount >= maxUnevenTripletsTotal) return false;
+        }
+        if (otherDivMap && blk.beats === 1) {
+          const myDiv = classifyBeatDivision(blk);
+          const oppDiv = otherDivMap[beatStart];
+          const wouldCross = (myDiv === 'triple' && oppDiv === 'duple') || (myDiv === 'duple' && oppDiv === 'triple');
+          if (wouldCross && twoAgainstThreeCount >= maxTwoAgainstThreeTotal) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      function fillMeasureBlocks(preferActive, allowMultiBeat = true, otherVoiceHasLong = false, otherDivMap = null) {
+        const blocks = [];
+        let filled = 0;
+        while (filled < meter.beats - 0.001) {
+          const rem = meter.beats - filled;
+          let candidates = pool.filter(b =>
+            b.beats <= rem + 0.001 &&
+            (allowMultiBeat || b.beats === 1) &&
+            canUseBlock(b, otherVoiceHasLong, blocks, otherDivMap, filled)
+          );
+          if (candidates.length === 0) {
+            candidates = fallbackPool.filter(b =>
+              b.beats <= rem + 0.001 &&
+              canUseBlock(b, otherVoiceHasLong, blocks, otherDivMap, filled)
+            );
+          }
+          if (candidates.length === 0) {
+            candidates = fallbackPool.filter(b => b.beats <= rem + 0.001 && !isUnevenTripletBlock(b));
+          }
+
+          if (preferActive && oneBeatActivePool.length > 0 && rem >= 1) {
+            const activeCands = candidates.filter(b => b.durs.length >= 2 && !blockHasLongNote(b));
+            if (activeCands.length > 0) candidates = activeCands;
+          } else if (!preferActive && oneBeatCalmPool.length > 0 && rem >= 1) {
+            const calmCands = candidates.filter(b => b.durs.length <= 2 && !blockHasLongNote(b));
+            if (calmCands.length > 0) candidates = calmCands;
+          }
+
+          const weighted = [];
+          candidates.forEach(c => {
+            const weight = c.isMultiBeat ? 1 : 4;
+            for (let w = 0; w < weight; w++) weighted.push(c);
+          });
+
+          const chosen = pickRandom(weighted);
+          blocks.push(chosen);
+          if (blockHasLongNote(chosen)) longNoteCount += 1;
+          if (isUnevenTripletBlock(chosen)) unevenTripletCount += 1;
+          if (otherDivMap && chosen.beats === 1) {
+            const myDiv = classifyBeatDivision(chosen);
+            const oppDiv = otherDivMap[filled];
+            if ((myDiv === 'triple' && oppDiv === 'duple') || (myDiv === 'duple' && oppDiv === 'triple')) {
+              twoAgainstThreeCount += 1;
+            }
+          }
+          filled += chosen.beats;
+        }
+        return blocks;
+      }
+
+      // 4. Harmonic Roadmap across 8 Bars
+      const isMaj = homeKey.mode === 'major';
+      const isModMaj = modKey.mode === 'major';
+      const harmonicPlan = [
+        // Bars 1–2: Home Key Exposition & Imitation
+        { scale: homeScale, key: homeKey, roman: isMaj ? 'I' : 'i',                         degs: [0, 2, 4],    raise7: false },
+        { scale: homeScale, key: homeKey, roman: 'V7 (低音模仿)',                          degs: [4, 6, 1, 3], raise7: true  },
+
+        // Bars 3–4: Smooth Pivot Modulation into Distant/Contrasting Key & Cadence
+        { scale: modScale,  key: modKey,  roman: `轉調過渡 (${modKey.name}: ii6/iv)`,      degs: [1, 3, 5, 0], raise7: false },
+        { scale: modScale,  key: modKey,  roman: `${modKey.name}: V7 → ${isModMaj ? 'I' : 'i'}`, degs: [4, 6, 1, 0], raise7: true  },
+
+        // Bars 5–6: Sequential Development (模進原型與移位) leading toward Home Dominant
+        { scale: modScale,  key: modKey,  roman: `模進原型 (${modKey.name}: IV7)`,         degs: [3, 5, 0, 2], raise7: false },
+        { scale: homeScale, key: homeKey, roman: `模進回歸 (${homeKey.name}: V7/V → V)`,   degs: [1, 3, 4, 6], raise7: true  },
+
+        // Bars 7–8: Home Key Drive & Authentic Cadence (V–I)
+        { scale: homeScale, key: homeKey, roman: isMaj ? 'ii6 → V7' : 'ii°6 → V7',         degs: [1, 3, 4, 6], raise7: true  },
+        { scale: homeScale, key: homeKey, roman: isMaj ? 'I (完全正格終止)' : 'i (完全正格終止)', degs: [0, 2, 4], raise7: false }
+      ];
+
+      // 5. Rhythmic Architecture across 8 Bars (enforcing <=2 cross-rhythms & <=2 uneven triplets)
+      const bar1SopBlocks = fillMeasureBlocks(true, false, false, null);
+      const bar1SopLong = bar1SopBlocks.some(blockHasLongNote);
+      const bar1SopDiv = getBeatDivisionMap(bar1SopBlocks);
+      const bar1BassBlocks = fillMeasureBlocks(false, !bar1SopLong, bar1SopLong, bar1SopDiv);
+
+      // Bar 2: Bass imitates Bar 1 Soprano rhythm (respecting uneven triplet cap)
+      let bar2BassBlocks = [...bar1SopBlocks];
+      const bar2UnevenCount = bar2BassBlocks.filter(isUnevenTripletBlock).length;
+      if (unevenTripletCount + bar2UnevenCount > maxUnevenTripletsTotal) {
+        bar2BassBlocks = fillMeasureBlocks(true, false, false, null);
+      } else {
+        unevenTripletCount += bar2UnevenCount;
+        if (bar2BassBlocks.some(blockHasLongNote)) longNoteCount += 1;
+      }
+      const bar2BassLong = bar2BassBlocks.some(blockHasLongNote);
+      const bar2BassDiv = getBeatDivisionMap(bar2BassBlocks);
+      const bar2SopBlocks = fillMeasureBlocks(true, !bar2BassLong, bar2BassLong, bar2BassDiv);
+
+      const makeBarPair = (sopPrefActive, bassPrefActive, allowMulti) => {
+        const sBlks = fillMeasureBlocks(sopPrefActive, allowMulti, false, null);
+        const sHasLong = sBlks.some(blockHasLongNote);
+        const sDiv = getBeatDivisionMap(sBlks);
+        const bBlks = fillMeasureBlocks(bassPrefActive, allowMulti && !sHasLong, sHasLong, sDiv);
+        return { sop: sBlks, bass: bBlks };
+      };
+
+      const bar3Pair = makeBarPair(false, true, true);
+      const bar4Pair = makeBarPair(true, false, true);
+
+      // Bars 5–6: Sequence Model (m.5) -> Sequence Copy (m.6) if within caps, else active counterpoint
+      const bar5Pair = makeBarPair(true, false, false);
+      const seqUnevenAdd = bar5Pair.sop.filter(isUnevenTripletBlock).length + bar5Pair.bass.filter(isUnevenTripletBlock).length;
+      const seqCrossAdd = countCrossRhythmsBetween(bar5Pair.sop, bar5Pair.bass);
+      const seqLongAdd = (bar5Pair.sop.some(blockHasLongNote) ? 1 : 0) + (bar5Pair.bass.some(blockHasLongNote) ? 1 : 0);
+
+      let bar6Pair;
+      if (unevenTripletCount + seqUnevenAdd <= maxUnevenTripletsTotal &&
+          twoAgainstThreeCount + seqCrossAdd <= maxTwoAgainstThreeTotal &&
+          longNoteCount + seqLongAdd <= maxLongNotesTotal) {
+        bar6Pair = { sop: [...bar5Pair.sop], bass: [...bar5Pair.bass] };
+        unevenTripletCount += seqUnevenAdd;
+        twoAgainstThreeCount += seqCrossAdd;
+        longNoteCount += seqLongAdd;
+      } else {
+        bar6Pair = makeBarPair(true, true, false);
+      }
+
+      const bar7Pair = makeBarPair(true, true, false);
+
+      const barRhythms = [
+        { sop: bar1SopBlocks, bass: bar1BassBlocks },
+        { sop: bar2SopBlocks, bass: bar2BassBlocks },
+        bar3Pair,
+        bar4Pair,
+        bar5Pair,
+        bar6Pair,
+        bar7Pair,
+        { sop: null, bass: null } // Bar 8: Cadential resolution
+      ];
+
+      // 6. Voice-Leading & Anti-Circling Pitch Realization
+      let lastSopMidi = isMaj ? 72 : 70;
+      let lastBassMidi = 48;
+      let lastInterval = 12;
+
+      const recentSopMidis = [lastSopMidi];
+      const recentBassMidis = [lastBassMidi];
+      let sopTrendDir = 1;
+      let bassTrendDir = -1;
+      let sopStepsInTrend = 0;
+      let bassStepsInTrend = 0;
+
+      function isCirclingPitch(historyArr, candMidi, prevMidi) {
+        if (candMidi === prevMidi) return true;
+        const len = historyArr.length;
+        if (len >= 2 && historyArr[len - 2] === candMidi) return true;
+        if (len >= 3 && historyArr[len - 3] === candMidi && historyArr[len - 1] === prevMidi) return true;
+        return false;
+      }
+
+      function pickChordTone(spec, degChoices, targetMidi, minMidi, maxMidi, otherMidi, isSoprano) {
+        let best = null;
+        let bestScore = -1e9;
+        const hist = isSoprano ? recentSopMidis : recentBassMidis;
+        const prevMidi = hist[hist.length - 1];
+        const trendDir = isSoprano ? sopTrendDir : bassTrendDir;
+
+        for (const d of degChoices) {
+          const shift = (spec.raise7 && spec.key.mode === 'minor' && ((d % 7) === 6)) ? 1 : 0;
+          for (const octOff of [-12, 0, 12]) {
+            const cand = clampPitchRange(createDegreePitch(spec.scale, d, targetMidi + octOff, shift), minMidi, maxMidi);
+            let score = -Math.abs(cand.midi - targetMidi) * 1.65;
+
+            const stepDelta = cand.midi - prevMidi;
+            if (Math.abs(stepDelta) === 0) {
+              score -= 28;
+            } else if (Math.abs(stepDelta) <= 2) {
+              score += 14;
+            } else if (Math.abs(stepDelta) <= 5) {
+              score += 7;
+            } else {
+              score -= 12;
+            }
+
+            if (stepDelta !== 0 && Math.sign(stepDelta) === trendDir) {
+              score += 12;
+            }
+
+            if (isCirclingPitch(hist, cand.midi, prevMidi)) {
+              score -= 160;
+            }
+
+            if (otherMidi !== null) {
+              const span = cand.midi - otherMidi;
+              if (span < 4) score -= 250;
+              const mod12 = ((span % 12) + 12) % 12;
+              if (mod12 === 3 || mod12 === 4 || mod12 === 8 || mod12 === 9) score += 18;
+              if ((mod12 === 0 || mod12 === 7) && (lastInterval % 12 === mod12) && cand.midi !== targetMidi) {
+                score -= 120;
+              }
+            }
+            if (score > bestScore) {
+              bestScore = score;
+              best = cand;
+            }
+          }
+        }
+        return best;
+      }
+
+      function pickNeighborOrPassing(spec, anchor, dir, minMidi, maxMidi, hist) {
+        const prevMidi = hist[hist.length - 1];
+        for (const tryDir of [dir, -dir]) {
+          const nextDeg = (anchor.deg + tryDir + 7) % 7;
+          const shift = (spec.raise7 && spec.key.mode === 'minor' && nextDeg === 6) ? 1 : 0;
+          const cand = clampPitchRange(createDegreePitch(spec.scale, nextDeg, anchor.midi + tryDir * 2, shift), minMidi, maxMidi);
+          if (Math.abs(cand.midi - anchor.midi) <= 3 && cand.midi !== anchor.midi && !isCirclingPitch(hist, cand.midi, prevMidi)) {
+            return cand;
+          }
+        }
+        const fallbackDeg = (anchor.deg + (dir >= 0 ? 1 : -1) + 7) % 7;
+        return clampPitchRange(createDegreePitch(spec.scale, fallbackDeg, anchor.midi + (dir >= 0 ? 2 : -2), 0), minMidi, maxMidi);
+      }
+
+      function recordPitchMotion(pitch, isSoprano) {
+        if (isSoprano) {
+          const delta = pitch.midi - lastSopMidi;
+          if (delta !== 0) {
+            if (Math.sign(delta) === sopTrendDir) sopStepsInTrend++;
+            else { sopTrendDir = Math.sign(delta); sopStepsInTrend = 1; }
+            if (sopStepsInTrend >= 4 || pitch.midi >= 79) { sopTrendDir = -1; sopStepsInTrend = 0; }
+            if (pitch.midi <= 62) { sopTrendDir = 1; sopStepsInTrend = 0; }
+          }
+          lastSopMidi = pitch.midi;
+          recentSopMidis.push(pitch.midi);
+          if (recentSopMidis.length > 6) recentSopMidis.shift();
+        } else {
+          const delta = pitch.midi - lastBassMidi;
+          if (delta !== 0) {
+            if (Math.sign(delta) === bassTrendDir) bassStepsInTrend++;
+            else { bassTrendDir = Math.sign(delta); bassStepsInTrend = 1; }
+            if (bassStepsInTrend >= 4 || pitch.midi <= 43) { bassTrendDir = 1; bassStepsInTrend = 0; }
+            if (pitch.midi >= 57) { bassTrendDir = -1; bassStepsInTrend = 0; }
+          }
+          lastBassMidi = pitch.midi;
+          recentBassMidis.push(pitch.midi);
+          if (recentBassMidis.length > 6) recentBassMidis.shift();
+        }
+        lastInterval = Math.abs(lastSopMidi - lastBassMidi);
+      }
+
+      const measures = [];
+      for (let m = 0; m < 8; m++) {
+        const spec = harmonicPlan[m];
+
+        // Bar 8: Lively Cadential Arrival with rhythmic pulse and final tonic resolution
+        if (m === 7) {
+          const finalBass = pickChordTone(spec, [0], lastBassMidi, 43, 55, null, false);
+          const finalSop = pickChordTone(spec, [0, 2], lastSopMidi, 64, 77, finalBass.midi, true);
+
+          const makeCadenceBarNotes = (pitch, isSoprano) => {
+            const arr = [];
+            if (isCompound) {
+              // Beat 0: lively eighth-note pickup/pulse into beat 1, then rhythmic tonic arrival
+              const pulse1 = clampPitchRange(
+                createDegreePitch(spec.scale, (pitch.deg + (isSoprano ? 6 : 4)) % 7, pitch.midi - (isSoprano ? 1 : 5), 0),
+                isSoprano ? 62 : 41,
+                isSoprano ? 77 : 55
+              );
+              const pulse2 = clampPitchRange(
+                createDegreePitch(spec.scale, (pitch.deg + 2) % 7, pitch.midi + (isSoprano ? 3 : 7), 0),
+                isSoprano ? 62 : 41,
+                isSoprano ? 79 : 57
+              );
+              arr.push({ ...pulse1, dur: 1/3, tuplet: null, beat: 0, tieToNext: false });
+              arr.push({ ...pulse2, dur: 1/3, tuplet: null, beat: 0, tieToNext: false });
+              arr.push({ ...pitch,  dur: 1/3, tuplet: null, beat: 0, tieToNext: false });
+
+              if (meter.beats === 2) {
+                // 6/8 bar 8: eighth-note pulse on beat 0, then quarter + eighth tonic cadence on beat 1
+                const tonic8 = clampPitchRange(
+                  createDegreePitch(spec.scale, (pitch.deg + (isSoprano ? 2 : 4)) % 7, pitch.midi + (isSoprano ? 3 : 7), 0),
+                  isSoprano ? 62 : 41,
+                  isSoprano ? 79 : 57
+                );
+                arr.push({ ...pitch,  dur: 2/3, tuplet: null, beat: 1, tieToNext: false });
+                arr.push({ ...tonic8, dur: 1/3, tuplet: null, beat: 1, tieToNext: false });
+              } else {
+                // 9/8 bar 8: eighth-note pulse on beat 0, quarter+eighth on beat 1, dotted quarter tonic on beat 2
+                const tonic8 = clampPitchRange(
+                  createDegreePitch(spec.scale, (pitch.deg + (isSoprano ? 2 : 4)) % 7, pitch.midi + (isSoprano ? 3 : 7), 0),
+                  isSoprano ? 62 : 41,
+                  isSoprano ? 79 : 57
+                );
+                arr.push({ ...pitch,  dur: 2/3, tuplet: null, beat: 1, tieToNext: false });
+                arr.push({ ...tonic8, dur: 1/3, tuplet: null, beat: 1, tieToNext: false });
+                arr.push({ ...pitch,  dur: 1.0, tuplet: null, beat: 2, tieToNext: false });
+              }
+              return arr;
+            } else {
+              // Simple meter (3/4 or 4/4): rhythmic leading/dominant motion + lively eighth-note pulse into tonic
+              const leadBeat0 = clampPitchRange(
+                createDegreePitch(spec.scale, (pitch.deg + (isSoprano ? 6 : 4)) % 7, pitch.midi - (isSoprano ? 1 : 5), spec.raise7 && isSoprano ? 1 : 0),
+                isSoprano ? 62 : 41,
+                isSoprano ? 77 : 55
+              );
+              arr.push({ ...leadBeat0, dur: 1, tuplet: null, beat: 0, tieToNext: false });
+
+              if (meter.beats === 3) {
+                // 3/4 bar 8: beat 0 step, beat 1 tonic quarter, beat 2 two eighth-notes moving across tonic
+                const upperNeighbor = clampPitchRange(
+                  createDegreePitch(spec.scale, (pitch.deg + 1) % 7, pitch.midi + 2, 0),
+                  isSoprano ? 62 : 41,
+                  isSoprano ? 79 : 57
+                );
+                arr.push({ ...pitch,         dur: 1,   tuplet: null, beat: 1, tieToNext: false });
+                arr.push({ ...pitch,         dur: 0.5, tuplet: null, beat: 2, tieToNext: false });
+                arr.push({ ...upperNeighbor, dur: 0.5, tuplet: null, beat: 2, tieToNext: false });
+              } else {
+                // 4/4 bar 8: beat 0 step, beat 1 tonic quarter, beat 2 two eighths, beat 3 quarter+two eighths or tonic pulse
+                const fifthTone = clampPitchRange(
+                  createDegreePitch(spec.scale, (pitch.deg + 4) % 7, pitch.midi + (isSoprano ? 7 : -5), 0),
+                  isSoprano ? 62 : 41,
+                  isSoprano ? 79 : 57
+                );
+                const subTone = clampPitchRange(
+                  createDegreePitch(spec.scale, (pitch.deg + 2) % 7, pitch.midi + (isSoprano ? 3 : 4), 0),
+                  isSoprano ? 62 : 41,
+                  isSoprano ? 79 : 57
+                );
+                arr.push({ ...pitch,    dur: 1,   tuplet: null, beat: 1, tieToNext: false });
+                arr.push({ ...pitch,    dur: 0.5, tuplet: null, beat: 2, tieToNext: false });
+                arr.push({ ...fifthTone,dur: 0.5, tuplet: null, beat: 2, tieToNext: false });
+                arr.push({ ...subTone,  dur: 0.5, tuplet: null, beat: 3, tieToNext: false });
+                arr.push({ ...pitch,    dur: 0.5, tuplet: null, beat: 3, tieToNext: false });
+              }
+              return arr;
+            }
+          };
+
+          recordPitchMotion(finalSop, true);
+          recordPitchMotion(finalBass, false);
+
+          measures.push({
+            index: m,
+            spec,
+            soprano: makeCadenceBarNotes(finalSop, true),
+            bass: makeCadenceBarNotes(finalBass, false)
+          });
+          continue;
+        }
+
+        const realiseVoiceBlocks = (blockList, isSoprano) => {
+          const notes = [];
+          let beatCursor = 0;
+          const minM = isSoprano ? 60 : 40;
+          const maxM = isSoprano ? 80 : 58;
+
+          blockList.forEach((blk, blkIdx) => {
+            const strongDegs = blkIdx === 0
+              ? (isSoprano ? [spec.degs[0], spec.degs[1], spec.degs[2]] : [spec.degs[0], spec.degs[1]])
+              : spec.degs;
+
+            const desiredTarget = isSoprano
+              ? lastSopMidi + sopTrendDir * 2
+              : lastBassMidi + bassTrendDir * 2;
+
+            const anchor = pickChordTone(
+              spec,
+              strongDegs,
+              desiredTarget,
+              minM,
+              maxM,
+              isSoprano ? lastBassMidi : null,
+              isSoprano
+            );
+
+            recordPitchMotion(anchor, isSoprano);
+
+            let cur = anchor;
+            const dir = isSoprano ? sopTrendDir : bassTrendDir;
+            const hist = isSoprano ? recentSopMidis : recentBassMidis;
+
+            blk.durs.forEach((d, nIdx) => {
+              if (nIdx > 0) {
+                if (d <= 0.5) {
+                  cur = pickNeighborOrPassing(spec, cur, dir, minM, maxM, hist);
+                } else {
+                  cur = pickChordTone(spec, spec.degs, cur.midi + dir * 2, minM, maxM, isSoprano ? lastBassMidi : null, isSoprano);
+                }
+                recordPitchMotion(cur, isSoprano);
+              }
+              notes.push({
+                ...cur,
+                dur: d,
+                tuplet: blk.tuplet,
+                beat: Math.floor(beatCursor + 0.001),
+                blockIndex: blkIdx,
+                tieToNext: false
+              });
+            });
+
+            beatCursor += blk.beats;
+          });
+
+          return notes;
+        };
+
+        const bassNotes = realiseVoiceBlocks(barRhythms[m].bass, false);
+        const sopNotes = realiseVoiceBlocks(barRhythms[m].sop, true);
+        measures.push({ index: m, spec, soprano: sopNotes, bass: bassNotes });
+      }
+
+      // 7. Apply Musical Ties (Default 'medium' = 2–5 ties across m.1–7)
+      applyExerciseTies(measures, state.tieMode, meter, longNoteCount, maxLongNotesTotal);
+
+      // 8. Exam Sheet Mask: Bars 1 & 8 full both voices; Bars 2–7 randomly provide
+      //    Soprano: 1 full bar + 2 half-bars ('first' or 'second'); Bass: 1 full bar + 2 half-bars
+      const hintSpec = generateMidBarHalfAndFullHintSpec(meter);
+
+      return {
+        code: `${homeKey.id.replace('_local', '')}-${meter.num}x${meter.den}-${Date.now().toString(36).slice(-4).toUpperCase()}`,
+        meter,
+        homeKey,
+        modKey,
+        measures,
+        hintSpec
+      };
+    }
+
+    /**
+     * Generates a per-exercise random hint plan across middle measures (index 1..6, i.e. bars 2–7):
+     * - Soprano gets 1 full measure + 2 half-measure windows ('first' or 'second')
+     * - Bass gets 1 full measure + 2 half-measure windows ('first' or 'second')
+     * Consecutive or non-consecutive placement is both allowed naturally.
+     */
+    function generateMidBarHalfAndFullHintSpec(meterObj) {
+      const midBars = [1, 2, 3, 4, 5, 6]; // 0-indexed bars 2..7
+
+      function pickForVoice() {
+        const shuffledBars = [...midBars];
+        for (let i = shuffledBars.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledBars[i], shuffledBars[j]] = [shuffledBars[j], shuffledBars[i]];
+        }
+        const fullBar = shuffledBars[0];
+        const halfBars = [shuffledBars[1], shuffledBars[2]];
+        const halfHalves = {};
+        halfBars.forEach(bIdx => {
+          halfHalves[bIdx] = Math.random() < 0.5 ? 'first' : 'second';
+        });
+        return { fullBar, halfBars, halfHalves };
+      }
+
+      const sopPlan = pickForVoice();
+      const bassPlan = pickForVoice();
+
+      const perMeasure = Array.from({ length: 8 }, (_, mIdx) => {
+        if (mIdx === 0 || mIdx === 7) {
+          return { soprano: 'full', bass: 'full' };
+        }
+        const getVoiceMode = (plan) => {
+          if (plan.fullBar === mIdx) return 'full';
+          if (plan.halfBars.includes(mIdx)) return plan.halfHalves[mIdx]; // 'first' | 'second'
+          return 'none';
+        };
+        return {
+          soprano: getVoiceMode(sopPlan),
+          bass: getVoiceMode(bassPlan)
+        };
+      });
+
+      return { perMeasure, sopPlan, bassPlan, midBeatSplit: meterObj.beats / 2 };
+    }
+
+    function applyExerciseTies(measures, tieMode, meterObj, existingLongCount, maxLongNotesTotal) {
+      let targetTies = 0;
+      if (tieMode === 'low') {
+        targetTies = Math.random() < 0.5 ? 1 : 2;
+      } else if (tieMode === 'medium') {
+        targetTies = 2 + Math.floor(Math.random() * 4); // 2 to 5 ties
+      }
+      if (targetTies === 0) return;
+
+      let currentLongNotes = existingLongCount;
+      const candidates = [];
+      for (const voiceName of ['soprano', 'bass']) {
+        const otherVoiceName = voiceName === 'soprano' ? 'bass' : 'soprano';
+        for (let m = 0; m < 6; m++) {
+          const curVoice = measures[m][voiceName];
+          const nextVoice = measures[m + 1][voiceName];
+          if (!curVoice.length || !nextVoice.length) continue;
+
+          const otherHasLong = measures[m + 1][otherVoiceName].some(on => isSustainedLongNote(on, meterObj));
+
+          // Cross-barline tie candidate (m -> m+1, up to m.6 -> m.7; keep m.8 clean)
+          const lastN = curVoice[curVoice.length - 1];
+          const firstNextN = nextVoice[0];
+          if (!lastN.tuplet && !firstNextN.tuplet && lastN.dur >= 0.25 && firstNextN.dur <= 1.0 && !otherHasLong) {
+            candidates.push({ m, voiceName, noteIdx: curVoice.length - 1, crossBar: true });
+          }
+
+          // Intra-bar tie candidate across beat boundary
+          for (let i = 0; i < curVoice.length - 1; i++) {
+            const n1 = curVoice[i];
+            const n2 = curVoice[i + 1];
+            if (n1.beat !== n2.beat && !n1.tuplet && !n2.tuplet && n1.dur <= 0.5 && n2.dur <= 0.5) {
+              candidates.push({ m, voiceName, noteIdx: i, crossBar: false });
+            }
+          }
+        }
+      }
+
+      for (let i = candidates.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+      }
+
+      let applied = 0;
+      const usedMeasures = new Set();
+      for (const c of candidates) {
+        if (applied >= targetTies) break;
+        const key = `${c.voiceName}_${c.m}`;
+        if (usedMeasures.has(key)) continue;
+
+        const curVoice = measures[c.m][c.voiceName];
+        const n1 = curVoice[c.noteIdx];
+        const n2 = c.crossBar ? measures[c.m + 1][c.voiceName][0] : curVoice[c.noteIdx + 1];
+        if (!n1 || !n2) continue;
+
+        const mergedCreatesLong = isSustainedLongNote({ dur: n1.dur + n2.dur, tuplet: null }, meterObj) &&
+          !isSustainedLongNote(n1, meterObj) && !isSustainedLongNote(n2, meterObj);
+        if (mergedCreatesLong && currentLongNotes >= maxLongNotesTotal) {
+          continue;
+        }
+
+        n2.step = n1.step;
+        n2.letter = n1.letter;
+        n2.alter = n1.alter;
+        n2.oct = n1.oct;
+        n2.midi = n1.midi;
+        n2.deg = n1.deg;
+        n1.tieToNext = true;
+
+        if (mergedCreatesLong) currentLongNotes++;
+        usedMeasures.add(key);
+        applied++;
+      }
+    }
+
+    function generateHintMask() {
+      const pool = ['empty', 'empty', 'empty', 'empty', 'soprano', 'soprano', 'soprano', 'bass', 'bass', 'bass'];
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      return ['both', ...pool, 'both'];
+    }
+
+    /* =========================================================================
+       4. PUBLICATION-GRADE 4-SYSTEM × 3-MEASURE GRAND STAFF SVG ENGRAVER
+       ========================================================================= */
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+
+    function svgEl(tag, attrs = {}) {
+      const el = document.createElementNS(SVG_NS, tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        el.setAttribute(k, String(v));
+      }
+      return el;
+    }
+
+    function getDiatonicNumber(pitch) {
+      return (pitch.oct - 4) * 7 + pitch.step;
+    }
+
+    function pitchToY(pitch, clef, trebleTopY, bassTopY) {
+      const d = getDiatonicNumber(pitch);
+      if (clef === 'treble') {
+        // Bottom line E4 (diatonic 2) is at trebleTopY + 36; G4 (diatonic 4) is at trebleTopY + 27
+        return (trebleTopY + 36) - (d - 2) * 4.5;
+      } else {
+        // Top line A3 (diatonic -2) is at bassTopY; F3 (diatonic -4) is at bassTopY + 9
+        return bassTopY - (d - (-2)) * 4.5;
+      }
+    }
+
+    const KEY_SIG_TREBLE = { sharp: [9, 6, 10], flat: [6, 9, 5] };     // F5, C5, G5 | B4, E5, A4
+    const KEY_SIG_BASS   = { sharp: [-4, -7, -3], flat: [-7, -4, -8] }; // F3, C3, G3 | B2, E3, A2
+
+    function getKeySigAlterMap(keyDef) {
+      const map = {};
+      const sharpOrder = [3, 0, 4, 1, 5, 2, 6];
+      const flatOrder  = [6, 2, 5, 1, 4, 0, 3];
+      if (keyDef.sigType === 'sharp') {
+        for (let i = 0; i < keyDef.sigCount; i++) map[sharpOrder[i]] = 1;
+      } else if (keyDef.sigType === 'flat') {
+        for (let i = 0; i < keyDef.sigCount; i++) map[flatOrder[i]] = -1;
+      }
+      return map;
+    }
+
+    /**
+     * Classically Proportioned Calligraphic Treble Clef (G Clef)
+     * Anchored so the inner spiral wraps cleanly around the G4 line (trebleTopY + 27)
+     */
+    function drawAuthenticTrebleClef(parent, x, trebleTopY) {
+      const g = svgEl('g', { transform: `translate(${x}, ${trebleTopY})` });
+
+      // Terminal ball below E4 line
+      g.appendChild(svgEl('circle', { cx: 11.2, cy: 47.2, r: 2.5, fill: '#1c1917' }));
+
+      // Main calligraphic G-clef silhouette (top loop above F5, broad belly kissing E4, spiral wrapping G4)
+      const clefPath = svgEl('path', {
+        d: [
+          'M 11.2 47.2',
+          'C 11.4 50.6, 15.6 51.5, 17.5 48.6',
+          'C 19.2 46.0, 18.4 41.2, 17.5 35.8',
+          'L 13.0 6.5',
+          'C 12.1 0.8, 12.4 -8.2, 15.6 -14.8',
+          'C 16.5 -16.6, 18.2 -16.6, 19.0 -14.8',
+          'C 20.6 -11.2, 20.4 -4.5, 16.8 1.5',
+          'C 13.2 7.5, 6.2 14.5, 5.2 22.8',
+          'C 4.2 30.8, 9.8 36.2, 17.2 36.2',
+          'C 22.8 36.2, 26.2 32.0, 25.8 27.0',
+          'C 25.4 22.2, 21.6 19.4, 17.2 19.8',
+          'C 13.4 20.2, 11.0 23.2, 11.4 26.8',
+          'C 11.8 29.8, 14.4 31.4, 16.6 30.8',
+          'C 14.6 30.2, 13.6 28.4, 13.8 26.5',
+          'C 14.1 24.0, 16.2 22.4, 18.6 22.8',
+          'C 21.4 23.2, 23.2 25.6, 23.0 28.6',
+          'C 22.7 32.2, 19.8 34.4, 16.4 34.4',
+          'C 10.6 34.4, 7.6 29.8, 8.2 23.6',
+          'C 8.9 16.8, 15.2 10.6, 18.4 4.2',
+          'C 20.6 -0.2, 20.5 -6.8, 18.4 -10.5',
+          'C 17.6 -11.8, 16.6 -11.6, 15.8 -10.0',
+          'C 13.8 -5.8, 14.0 1.2, 14.8 6.5',
+          'L 19.1 35.6',
+          'C 20.1 42.2, 20.4 47.8, 17.8 50.6',
+          'C 15.4 53.0, 10.6 51.8, 11.2 47.2 Z'
+        ].join(' '),
+        fill: '#1c1917'
+      });
+      g.appendChild(clefPath);
+      parent.appendChild(g);
+    }
+
+    /**
+     * Classically Proportioned Calligraphic Bass Clef (F Clef)
+     * Centered on the F3 line (bassTopY + 9) with two dots straddling F3
+     */
+    function drawAuthenticBassClef(parent, x, bassTopY) {
+      const g = svgEl('g', { transform: `translate(${x}, ${bassTopY})` });
+
+      // Solid round head centered on F3 (y = 9)
+      g.appendChild(svgEl('circle', { cx: 8.2, cy: 9.0, r: 3.4, fill: '#1c1917' }));
+
+      // Sweeping F-clef arch from F3 up to A3 (y = 0) and tapering down toward G2 (y = 32)
+      const fPath = svgEl('path', {
+        d: [
+          'M 5.0 9.2',
+          'C 4.8 3.6, 8.8 0.2, 14.2 0.2',
+          'C 20.2 0.2, 23.4 4.8, 22.8 11.4',
+          'C 22.1 19.2, 15.2 26.2, 4.4 31.8',
+          'L 3.8 30.6',
+          'C 12.6 25.4, 17.8 19.0, 18.2 11.2',
+          'C 18.6 5.8, 16.2 2.4, 12.4 2.4',
+          'C 9.2 2.4, 7.2 4.6, 7.4 7.8 Z'
+        ].join(' '),
+        fill: '#1c1917'
+      });
+      g.appendChild(fPath);
+
+      // Two crisp dots straddling F3 line (y = 4.5 and y = 13.5)
+      g.appendChild(svgEl('circle', { cx: 26.2, cy: 4.5, r: 2.1, fill: '#1c1917' }));
+      g.appendChild(svgEl('circle', { cx: 26.2, cy: 13.5, r: 2.1, fill: '#1c1917' }));
+
+      parent.appendChild(g);
+    }
+
+    function drawAccidental(parent, x, y, alter, scale = 1) {
+      const g = svgEl('g', { transform: `translate(${x}, ${y}) scale(${scale})` });
+      if (alter === 1) {
+        g.appendChild(svgEl('line', { x1: -2.2, y1: -8.5, x2: -2.2, y2: 8.5, stroke: '#1c1917', 'stroke-width': 1.25 }));
+        g.appendChild(svgEl('line', { x1: 2.2, y1: -9.5, x2: 2.2, y2: 7.5, stroke: '#1c1917', 'stroke-width': 1.25 }));
+        g.appendChild(svgEl('line', { x1: -4.8, y1: -2.2, x2: 4.8, y2: -4.2, stroke: '#1c1917', 'stroke-width': 2.2 }));
+        g.appendChild(svgEl('line', { x1: -4.8, y1: 3.4, x2: 4.8, y2: 1.4, stroke: '#1c1917', 'stroke-width': 2.2 }));
+      } else if (alter === -1) {
+        g.appendChild(svgEl('path', {
+          d: 'M -2.5 -11 L -2.5 5.5 C 0.8 3.2, 4.2 1.2, 4.2 -1.2 C 4.2 -3.2, 2.4 -4.2, 0.4 -3.2 C -0.8 -2.6, -1.8 -1.6, -2.5 -0.6',
+          fill: 'none', stroke: '#1c1917', 'stroke-width': 1.55, 'stroke-linecap': 'round'
+        }));
+      } else if (alter === 0) {
+        g.appendChild(svgEl('line', { x1: -2.2, y1: -9, x2: -2.2, y2: 3.5, stroke: '#1c1917', 'stroke-width': 1.25 }));
+        g.appendChild(svgEl('line', { x1: 2.2, y1: -3.5, x2: 2.2, y2: 9, stroke: '#1c1917', 'stroke-width': 1.25 }));
+        g.appendChild(svgEl('line', { x1: -2.2, y1: -2.6, x2: 2.4, y2: -4.0, stroke: '#1c1917', 'stroke-width': 2.1 }));
+        g.appendChild(svgEl('line', { x1: -2.4, y1: 3.6, x2: 2.2, y2: 2.2, stroke: '#1c1917', 'stroke-width': 2.1 }));
+      }
+      parent.appendChild(g);
+    }
+
+    function drawBrace(parent, x, topY, bottomY) {
+      const midY = (topY + bottomY) / 2;
+      const h = bottomY - topY;
+      parent.appendChild(svgEl('path', {
+        d: `M ${x} ${topY} C ${x - 11} ${topY + h * 0.14}, ${x - 3} ${midY - h * 0.14}, ${x - 13} ${midY} C ${x - 3} ${midY + h * 0.14}, ${x - 11} ${bottomY - h * 0.14}, ${x} ${bottomY} C ${x - 7} ${bottomY - h * 0.14}, ${x - 1} ${midY + h * 0.12}, ${x - 9} ${midY} C ${x - 1} ${midY - h * 0.12}, ${x - 7} ${topY + h * 0.14}, ${x} ${topY} Z`,
+        fill: '#1c1917'
+      }));
+    }
+
+    /**
+     * Authentic Flag: Always curves to the RIGHT of the stem regardless of stemUp/stemDown
+     */
+    function drawAuthenticFlag(parent, stemX, tipY, stemUp, isSixteenth) {
+      const dirY = stemUp ? 1 : -1;
+      const p1 = svgEl('path', {
+        d: `M ${stemX} ${tipY} C ${stemX + 3.5} ${tipY + dirY * 6}, ${stemX + 9.5} ${tipY + dirY * 10}, ${stemX + 6.5} ${tipY + dirY * 19}`,
+        fill: 'none', stroke: '#1c1917', 'stroke-width': 2.1, 'stroke-linecap': 'round'
+      });
+      p1.classList.add('note-flag');
+      parent.appendChild(p1);
+
+      if (isSixteenth) {
+        const y2 = tipY + dirY * 6.5;
+        const p2 = svgEl('path', {
+          d: `M ${stemX} ${y2} C ${stemX + 3.5} ${y2 + dirY * 6}, ${stemX + 9.5} ${y2 + dirY * 10}, ${stemX + 6.5} ${y2 + dirY * 19}`,
+          fill: 'none', stroke: '#1c1917', 'stroke-width': 2.1, 'stroke-linecap': 'round'
+        });
+        p2.classList.add('note-flag');
+        parent.appendChild(p2);
+      }
+    }
+
+    function drawLedgerLines(parent, x, pitch, clef, trebleTopY, bassTopY) {
+      const d = getDiatonicNumber(pitch);
+      if (clef === 'treble') {
+        if (d <= 0) {
+          for (let ld = 0; ld >= d; ld -= 2) {
+            const ly = (trebleTopY + 36) - (ld - 2) * 4.5;
+            parent.appendChild(svgEl('line', { x1: x - 9.5, y1: ly, x2: x + 9.5, y2: ly, stroke: '#1c1917', 'stroke-width': 1.2 }));
+          }
+        } else if (d >= 12) {
+          for (let ld = 12; ld <= d; ld += 2) {
+            const ly = (trebleTopY + 36) - (ld - 2) * 4.5;
+            parent.appendChild(svgEl('line', { x1: x - 9.5, y1: ly, x2: x + 9.5, y2: ly, stroke: '#1c1917', 'stroke-width': 1.2 }));
+          }
+        }
+      } else {
+        if (d >= 0) {
+          for (let ld = 0; ld <= d; ld += 2) {
+            const ly = bassTopY - (ld - (-2)) * 4.5;
+            parent.appendChild(svgEl('line', { x1: x - 9.5, y1: ly, x2: x + 9.5, y2: ly, stroke: '#1c1917', 'stroke-width': 1.2 }));
+          }
+        } else if (d <= -12) {
+          for (let ld = -12; ld >= d; ld -= 2) {
+            const ly = bassTopY - (ld - (-2)) * 4.5;
+            parent.appendChild(svgEl('line', { x1: x - 9.5, y1: ly, x2: x + 9.5, y2: ly, stroke: '#1c1917', 'stroke-width': 1.2 }));
+          }
+        }
+      }
+    }
+
+    /**
+     * Render 4 Systems × 2 Measures (Bars 1–2, 3–4, 5–6, 7–8)
+     */
+    function renderGrandStaffScore(exercise) {
+      const svg = document.getElementById('grand-staff-svg');
+      svg.innerHTML = '';
+
+      const isSingleMelody = state.musicMode === 'single_melody';
+      const singleClef = state.singleClef; // 'treble' | 'bass'
+      const singleVoice = singleClef === 'treble' ? 'soprano' : 'bass';
+
+      const leftMargin = 46;
+      const rightMargin = 1094;
+      // Single-melody mode uses a more compact vertical rhythm per system while keeping 4 systems × 2 bars
+      const systemYs = isSingleMelody ? [42, 232, 422, 612] : [46, 302, 558, 814];
+      svg.setAttribute('viewBox', isSingleMelody ? '0 0 1120 790' : '0 0 1120 1040');
+
+      const bassOffset = 98;
+      const keySigMap = getKeySigAlterMap(exercise.homeKey);
+      const sigCount = exercise.homeKey.sigCount;
+      const sigWidth = sigCount * 11 + (sigCount > 0 ? 8 : 0);
+      const timeSigWidth = 34;
+
+      const prevBarAlters = { soprano: {}, bass: {} };
+      const renderedNoteCoords = { soprano: [], bass: [] };
+
+      for (let sys = 0; sys < 4; sys++) {
+        const trebleTopY = systemYs[sys];
+        const activeTopY = isSingleMelody ? trebleTopY : (singleClef === 'treble' ? trebleTopY : trebleTopY + bassOffset);
+        const bassTopY = trebleTopY + bassOffset;
+        const staffBottomY = isSingleMelody ? (activeTopY + 36) : (bassTopY + 36);
+
+        const sysGroup = svgEl('g', { class: `system-${sys}` });
+        svg.appendChild(sysGroup);
+
+        // 1. Brace (Grand Staff only) & Left Barline
+        if (!isSingleMelody) {
+          drawBrace(sysGroup, leftMargin - 4, trebleTopY, staffBottomY);
+        }
+        sysGroup.appendChild(svgEl('line', {
+          x1: leftMargin, y1: isSingleMelody ? activeTopY : trebleTopY, x2: leftMargin, y2: staffBottomY,
+          stroke: '#1c1917', 'stroke-width': 1.6
+        }));
+
+        // 2. 5 Staff Lines
+        for (let l = 0; l < 5; l++) {
+          if (isSingleMelody) {
+            const sy = activeTopY + l * 9;
+            sysGroup.appendChild(svgEl('line', { x1: leftMargin, y1: sy, x2: rightMargin, y2: sy, stroke: '#292524', 'stroke-width': 1.1 }));
+          } else {
+            const ty = trebleTopY + l * 9;
+            const by = bassTopY + l * 9;
+            sysGroup.appendChild(svgEl('line', { x1: leftMargin, y1: ty, x2: rightMargin, y2: ty, stroke: '#292524', 'stroke-width': 1.1 }));
+            sysGroup.appendChild(svgEl('line', { x1: leftMargin, y1: by, x2: rightMargin, y2: by, stroke: '#292524', 'stroke-width': 1.1 }));
+          }
+        }
+
+        // 3. Authentic G-Clef &/or F-Clef
+        if (isSingleMelody) {
+          if (singleClef === 'treble') drawAuthenticTrebleClef(sysGroup, leftMargin + 6, activeTopY);
+          else drawAuthenticBassClef(sysGroup, leftMargin + 7, activeTopY);
+        } else {
+          drawAuthenticTrebleClef(sysGroup, leftMargin + 6, trebleTopY);
+          drawAuthenticBassClef(sysGroup, leftMargin + 7, bassTopY);
+        }
+
+        // 4. Key Signature
+        let cursorX = leftMargin + 44;
+        if (sigCount > 0 && exercise.homeKey.sigType !== 'none') {
+          const tPos = KEY_SIG_TREBLE[exercise.homeKey.sigType];
+          const bPos = KEY_SIG_BASS[exercise.homeKey.sigType];
+          const alterVal = exercise.homeKey.sigType === 'sharp' ? 1 : -1;
+          for (let s = 0; s < sigCount; s++) {
+            const sx = cursorX + s * 11;
+            if (isSingleMelody) {
+              const posArr = singleClef === 'treble' ? tPos : bPos;
+              const baseLine = singleClef === 'treble' ? (activeTopY + 36) : activeTopY;
+              const baseDeg = singleClef === 'treble' ? 2 : -2;
+              const sy = baseLine - (posArr[s] - baseDeg) * 4.5;
+              drawAccidental(sysGroup, sx, sy, alterVal, 0.92);
+            } else {
+              const ty = (trebleTopY + 36) - (tPos[s] - 2) * 4.5;
+              const by = bassTopY - (bPos[s] - (-2)) * 4.5;
+              drawAccidental(sysGroup, sx, ty, alterVal, 0.92);
+              drawAccidental(sysGroup, sx, by, alterVal, 0.92);
+            }
+          }
+          cursorX += sigWidth;
+        }
+
+        // 5. Time Signature (System 0 only)
+        if (sys === 0) {
+          const [num, den] = exercise.meter.num ? [exercise.meter.num, exercise.meter.den] : ['4', '4'];
+          const tsX = cursorX + 10;
+          const tsAttrs = {
+            x: tsX, 'text-anchor': 'middle',
+            'font-family': '"Crimson Pro", Georgia, serif',
+            'font-weight': '700', 'font-size': '25', fill: '#1c1917'
+          };
+          if (isSingleMelody) {
+            const sNum = svgEl('text', { ...tsAttrs, y: activeTopY + 17 }); sNum.textContent = num;
+            const sDen = svgEl('text', { ...tsAttrs, y: activeTopY + 35 }); sDen.textContent = den;
+            sysGroup.append(sNum, sDen);
+          } else {
+            const tNum = svgEl('text', { ...tsAttrs, y: trebleTopY + 17 }); tNum.textContent = num;
+            const tDen = svgEl('text', { ...tsAttrs, y: trebleTopY + 35 }); tDen.textContent = den;
+            const bNum = svgEl('text', { ...tsAttrs, y: bassTopY + 17 });   bNum.textContent = num;
+            const bDen = svgEl('text', { ...tsAttrs, y: bassTopY + 35 });   bDen.textContent = den;
+            sysGroup.append(tNum, tDen, bNum, bDen);
+          }
+          cursorX += timeSigWidth;
+        } else {
+          cursorX += 10;
+        }
+
+        // 6. Lay out 2 Measures per System
+        const remainingWidth = rightMargin - cursorX;
+        const measureWidth = remainingWidth / 2;
+
+        for (let col = 0; col < 2; col++) {
+          const mIdx = sys * 2 + col;
+          const measure = exercise.measures[mIdx];
+          const mStartX = cursorX + col * measureWidth;
+          const mEndX = mStartX + measureWidth;
+
+          const numY = (isSingleMelody ? activeTopY : trebleTopY) - 12;
+
+          // Measure Number (Measures 2..8)
+          if (mIdx > 0) {
+            const mNum = svgEl('text', {
+              x: mStartX + 6, y: numY,
+              'font-family': '"Crimson Pro", Georgia, serif',
+              'font-style': 'italic', 'font-size': '13', fill: '#57534e'
+            });
+            mNum.textContent = String(mIdx + 1);
+            sysGroup.appendChild(mNum);
+          }
+
+          // Harmonic Analysis Label in Teacher Answer Key Mode
+          if (state.sheetMode === 'answer') {
+            const rom = svgEl('text', {
+              x: mStartX + (mIdx === 0 ? 6 : 26), y: numY,
+              'font-family': '"Noto Sans TC", sans-serif',
+              'font-size': '11', 'font-weight': '700',
+              fill: measure.spec.key.id !== exercise.homeKey.id ? '#0369a1' : '#92400e'
+            });
+            rom.textContent = measure.spec.roman;
+            sysGroup.appendChild(rom);
+          }
+
+          const maskSpec = state.sheetMode === 'answer'
+            ? { soprano: 'full', bass: 'full' }
+            : exercise.hintSpec.perMeasure[mIdx];
+
+          if (isSingleMelody) {
+            // In single-melody mode, show full melody on bars 1 & 8 and any hinted slots on bars 2–7
+            const singleVisMode = (state.sheetMode === 'answer' || mIdx === 0 || mIdx === 7)
+              ? 'full'
+              : maskSpec[singleVoice];
+            const refTrebleTop = singleClef === 'treble' ? activeTopY : activeTopY - bassOffset;
+            const refBassTop = singleClef === 'bass' ? activeTopY : activeTopY + bassOffset;
+
+            renderedNoteCoords[singleVoice][mIdx] = renderVoiceInMeasure(
+              sysGroup, measure[singleVoice], singleClef, mIdx, mStartX, mEndX, refTrebleTop, refBassTop,
+              keySigMap, prevBarAlters[singleVoice], singleVisMode, exercise.meter
+            );
+          } else {
+            renderedNoteCoords.soprano[mIdx] = renderVoiceInMeasure(
+              sysGroup, measure.soprano, 'treble', mIdx, mStartX, mEndX, trebleTopY, bassTopY,
+              keySigMap, prevBarAlters.soprano, maskSpec.soprano, exercise.meter
+            );
+            renderedNoteCoords.bass[mIdx] = renderVoiceInMeasure(
+              sysGroup, measure.bass, 'bass', mIdx, mStartX, mEndX, trebleTopY, bassTopY,
+              keySigMap, prevBarAlters.bass, maskSpec.bass, exercise.meter
+            );
+          }
+
+          // Barlines (Final Double Barline at Measure 8 / index 7)
+          const barTop = isSingleMelody ? activeTopY : trebleTopY;
+          if (mIdx === 7) {
+            sysGroup.appendChild(svgEl('line', {
+              x1: mEndX - 5, y1: barTop, x2: mEndX - 5, y2: staffBottomY,
+              stroke: '#1c1917', 'stroke-width': 1.5
+            }));
+            sysGroup.appendChild(svgEl('line', {
+              x1: mEndX, y1: barTop, x2: mEndX, y2: staffBottomY,
+              stroke: '#1c1917', 'stroke-width': 3.6
+            }));
+          } else {
+            sysGroup.appendChild(svgEl('line', {
+              x1: mEndX, y1: barTop, x2: mEndX, y2: staffBottomY,
+              stroke: '#1c1917', 'stroke-width': 1.4
+            }));
+          }
+
+          // Vertical Playhead Indicator for Real-Time Playback Sync
+          const ph = svgEl('line', {
+            id: `playhead-m${mIdx}`,
+            class: 'playhead-line',
+            'data-start-x': mStartX + 16,
+            'data-end-x': mEndX - 10,
+            x1: mStartX + 16,
+            y1: barTop - 10,
+            x2: mStartX + 16,
+            y2: staffBottomY + 10,
+            stroke: '#dc2626',
+            'stroke-width': 2.2,
+            opacity: 0
+          });
+          sysGroup.appendChild(ph);
+        }
+      }
+
+      renderAllTies(svg, renderedNoteCoords);
+    }
+
+    function renderVoiceInMeasure(parent, notes, clef, mIdx, mStartX, mEndX, trebleTopY, bassTopY, keySigMap, prevBarAlterState, visMode, meterObj) {
+      const innerLeft = mStartX + 20;
+      const innerRight = mEndX - 14;
+      const usableWidth = innerRight - innerLeft;
+      const totalDur = notes.reduce((acc, n) => acc + n.dur, 0);
+      const isTripleMeter = meterObj.beats === 3; // 3/4 and 9/8: half-measure hint spans 2 full main beats
+      const winStart = visMode === 'first'
+        ? 0
+        : (isTripleMeter ? 1 : totalDur / 2);
+      const winEnd = visMode === 'first'
+        ? (isTripleMeter ? 2 : totalDur / 2)
+        : totalDur;
+
+      const activeAlters = {};
+      const nextBarAlters = {};
+      let elapsed = 0;
+
+      const layoutNotes = notes.map((n, nIdx) => {
+        const noteStart = elapsed;
+        const x = innerLeft + (noteStart / totalDur) * usableWidth;
+        elapsed += n.dur;
+
+        let isVisible = false;
+        if (visMode === 'full') {
+          isVisible = true;
+        } else if (visMode === 'first') {
+          isVisible = noteStart < winEnd - 0.005;
+        } else if (visMode === 'second') {
+          isVisible = noteStart >= winStart - 0.005;
+        }
+
+        const y = pitchToY(n, clef, trebleTopY, bassTopY);
+        const wq = getWrittenQuarters(n.dur, n.tuplet, meterObj);
+        const vis = writtenQuartersToVisual(wq);
+        const pitchKey = `${n.step}_${n.oct}`;
+        const keyDefaultAlter = keySigMap[n.step] || 0;
+        const currentEffective = (pitchKey in activeAlters) ? activeAlters[pitchKey] : keyDefaultAlter;
+
+        let showAlter = null;
+        if (n.alter !== currentEffective) {
+          showAlter = n.alter;
+          activeAlters[pitchKey] = n.alter;
+        } else if ((pitchKey in prevBarAlterState) && prevBarAlterState[pitchKey] !== n.alter && !(pitchKey in activeAlters)) {
+          showAlter = n.alter;
+          activeAlters[pitchKey] = n.alter;
+        }
+
+        if (n.alter !== keyDefaultAlter) {
+          nextBarAlters[pitchKey] = n.alter;
+        }
+
+        return {
+          note: n,
+          x,
+          y,
+          vis,
+          diatonic: getDiatonicNumber(n),
+          showAlter,
+          visible: isVisible,
+          domId: `${clef}-m${mIdx}-n${nIdx}`
+        };
+      });
+
+      for (const k of Object.keys(prevBarAlterState)) delete prevBarAlterState[k];
+      for (const [k, v] of Object.entries(nextBarAlters)) prevBarAlterState[k] = v;
+
+      // Subtle bracket marker over the hinted portion (2 main beats in 3/4 & 9/8, or half-measure in 4/4 & 6/8)
+      if (state.sheetMode === 'question' && (visMode === 'first' || visMode === 'second')) {
+        const bStartX = innerLeft + (winStart / totalDur) * usableWidth - 4;
+        const bEndX = innerLeft + (winEnd / totalDur) * usableWidth + 4;
+        const markerY = clef === 'treble' ? (trebleTopY - 5) : (bassTopY + 42);
+        parent.appendChild(svgEl('line', {
+          x1: bStartX, y1: markerY, x2: bEndX, y2: markerY,
+          stroke: '#0f766e', 'stroke-width': 1.5, 'stroke-dasharray': '3 2'
+        }));
+      }
+
+      const visibleLayoutNotes = layoutNotes.filter(ln => ln.visible);
+      if (!visibleLayoutNotes.length) return layoutNotes;
+
+      // Group visible notes by beat
+      const beatGroups = [];
+      for (const ln of visibleLayoutNotes) {
+        const b = ln.note.beat;
+        if (!beatGroups[b]) beatGroups[b] = [];
+        beatGroups[b].push(ln);
+      }
+
+      const middleDiatonic = (clef === 'treble') ? 6 : -6; // B4 on Treble, D3 on Bass
+      const beamThickness = 3.4;
+      const beamGap = 5.0;
+
+      for (const group of beatGroups) {
+        if (!group || !group.length) continue;
+
+        // Partition into beamable runs (vis.beams >= 1) and un-beamed notes (vis.beams === 0)
+        const runs = [];
+        let curRun = [];
+        for (const item of group) {
+          if (item.vis.beams >= 1) {
+            curRun.push(item);
+          } else {
+            if (curRun.length > 0) { runs.push(curRun); curRun = []; }
+            runs.push([item]);
+          }
+        }
+        if (curRun.length > 0) runs.push(curRun);
+
+        for (const run of runs) {
+          if (run.length >= 2) {
+            const avgDiatonic = run.reduce((s, it) => s + it.diatonic, 0) / run.length;
+            const stemUp = avgDiatonic < middleDiatonic;
+            const stemDir = stemUp ? -1 : 1;
+            const stemOffsetX = stemUp ? 5.0 : -5.0;
+
+            const first = run[0];
+            const last = run[run.length - 1];
+            let y1 = first.y + stemDir * 30;
+            let y2 = last.y + stemDir * 30;
+            const dy = y2 - y1;
+            if (Math.abs(dy) > 9) {
+              const mid = (y1 + y2) / 2;
+              const clamped = Math.sign(dy) * 9;
+              y1 = mid - clamped / 2;
+              y2 = mid + clamped / 2;
+            }
+            for (const it of run) {
+              const t = (last.x === first.x) ? 0 : (it.x - first.x) / (last.x - first.x);
+              const beamYAtX = y1 + t * (y2 - y1);
+              const actualLen = stemUp ? (it.y - beamYAtX) : (beamYAtX - it.y);
+              if (actualLen < 22) {
+                const shift = (22 - actualLen) * stemDir;
+                y1 += shift;
+                y2 += shift;
+              }
+            }
+
+            run.forEach((it) => {
+              const t = (last.x === first.x) ? 0 : (it.x - first.x) / (last.x - first.x);
+              const beamY = y1 + t * (y2 - y1);
+              it.stemUp = stemUp;
+              it.beamY = beamY;
+
+              const ng = drawSingleNoteHead(parent, it, clef, trebleTopY, bassTopY);
+              const stem = svgEl('line', {
+                class: 'note-stem',
+                x1: it.x + stemOffsetX, y1: it.y,
+                x2: it.x + stemOffsetX, y2: beamY,
+                stroke: '#1c1917', 'stroke-width': 1.35
+              });
+              ng.appendChild(stem);
+            });
+
+            // Primary beam
+            parent.appendChild(svgEl('line', {
+              x1: first.x + stemOffsetX, y1: y1,
+              x2: last.x + stemOffsetX,  y2: y2,
+              stroke: '#1c1917', 'stroke-width': beamThickness, 'stroke-linecap': 'butt'
+            }));
+
+            // Secondary 16th-note beams & broken-beam stubs
+            const secOffset = stemUp ? beamGap : -beamGap;
+            for (let idx = 0; idx < run.length; idx++) {
+              if (run[idx].vis.beams < 2) continue;
+              const cur = run[idx];
+              const prevIs16 = (idx > 0 && run[idx - 1].vis.beams >= 2);
+              const nextIs16 = (idx < run.length - 1 && run[idx + 1].vis.beams >= 2);
+
+              if (nextIs16) {
+                const nxt = run[idx + 1];
+                parent.appendChild(svgEl('line', {
+                  x1: cur.x + stemOffsetX, y1: cur.beamY + secOffset,
+                  x2: nxt.x + stemOffsetX, y2: nxt.beamY + secOffset,
+                  stroke: '#1c1917', 'stroke-width': beamThickness
+                }));
+              } else if (!prevIs16) {
+                const stubDir = (idx === 0) ? 1 : -1;
+                const stubLen = 9.0 * stubDir;
+                const slope = (last.x === first.x) ? 0 : (y2 - y1) / (last.x - first.x);
+                parent.appendChild(svgEl('line', {
+                  x1: cur.x + stemOffsetX, y1: cur.beamY + secOffset,
+                  x2: cur.x + stemOffsetX + stubLen, y2: cur.beamY + secOffset + stubLen * slope,
+                  stroke: '#1c1917', 'stroke-width': beamThickness
+                }));
+              }
+            }
+
+            // Tuplet bracket & italic serif numeral ('3' or '2')
+            if (first.note.tuplet) {
+              const bx1 = first.x - 4;
+              const bx2 = last.x + 8;
+              const midX = (bx1 + bx2) / 2;
+              const midBeamY = (y1 + y2) / 2;
+              const brkY = stemUp ? (midBeamY - 9) : (midBeamY + 13);
+              const hookDir = stemUp ? 4 : -4;
+              parent.appendChild(svgEl('path', {
+                d: `M ${bx1} ${brkY + hookDir} L ${bx1} ${brkY} L ${midX - 8} ${brkY} M ${midX + 8} ${brkY} L ${bx2} ${brkY} L ${bx2} ${brkY + hookDir}`,
+                fill: 'none', stroke: '#1c1917', 'stroke-width': 1.15
+              }));
+              const tupText = svgEl('text', {
+                x: midX, y: brkY + 3.5,
+                'text-anchor': 'middle',
+                'font-family': '"Crimson Pro", Georgia, serif',
+                'font-style': 'italic', 'font-weight': '700', 'font-size': '13',
+                fill: '#1c1917'
+              });
+              tupText.textContent = String(first.note.tuplet);
+              parent.appendChild(tupText);
+            }
+          } else {
+            // Single un-beamed note
+            const it = run[0];
+            const stemUp = it.diatonic < middleDiatonic;
+            it.stemUp = stemUp;
+            const ng = drawSingleNoteHead(parent, it, clef, trebleTopY, bassTopY);
+
+            if (it.vis.stem) {
+              const stemDir = stemUp ? -1 : 1;
+              const stemOffsetX = stemUp ? 5.0 : -5.0;
+              const tipY = it.y + stemDir * 31;
+              const stem = svgEl('line', {
+                class: 'note-stem',
+                x1: it.x + stemOffsetX, y1: it.y,
+                x2: it.x + stemOffsetX, y2: tipY,
+                stroke: '#1c1917', 'stroke-width': 1.35
+              });
+              ng.appendChild(stem);
+
+              if (it.vis.beams >= 1) {
+                drawAuthenticFlag(ng, it.x + stemOffsetX, tipY, stemUp, it.vis.beams >= 2);
+              }
+            }
+          }
+        }
+      }
+
+      return layoutNotes;
+    }
+
+    function drawSingleNoteHead(parent, it, clef, trebleTopY, bassTopY) {
+      drawLedgerLines(parent, it.x, it.note, clef, trebleTopY, bassTopY);
+
+      if (it.showAlter !== null) {
+        drawAccidental(parent, it.x - 12.5, it.y, it.showAlter, 0.96);
+      }
+
+      const ng = svgEl('g', { id: it.domId, class: 'note-group' });
+      const { head, dots } = it.vis;
+
+      if (head === 'whole') {
+        ng.appendChild(svgEl('ellipse', {
+          class: 'notehead', cx: it.x, cy: it.y, rx: 6.8, ry: 4.3,
+          fill: '#fdfbf7', stroke: '#1c1917', 'stroke-width': 2.0
+        }));
+      } else if (head === 'half') {
+        ng.appendChild(svgEl('ellipse', {
+          class: 'notehead', cx: it.x, cy: it.y, rx: 5.8, ry: 4.0,
+          transform: `rotate(-18 ${it.x} ${it.y})`,
+          fill: '#fdfbf7', stroke: '#1c1917', 'stroke-width': 1.9
+        }));
+      } else {
+        ng.appendChild(svgEl('ellipse', {
+          class: 'notehead', cx: it.x, cy: it.y, rx: 5.8, ry: 4.0,
+          transform: `rotate(-18 ${it.x} ${it.y})`,
+          fill: '#1c1917'
+        }));
+      }
+
+      if (dots > 0) {
+        const onLine = (Math.abs(it.diatonic) % 2 === 0);
+        const dotY = onLine ? it.y - 3.2 : it.y;
+        ng.appendChild(svgEl('circle', {
+          class: 'note-dot', cx: it.x + 9.5, cy: dotY, r: 1.95, fill: '#1c1917'
+        }));
+      }
+
+      parent.appendChild(ng);
+      return ng;
+    }
+
+    function renderAllTies(svg, renderedNoteCoords) {
+      for (const voiceName of ['soprano', 'bass']) {
+        const flat = [];
+        for (let m = 0; m < 8; m++) {
+          const arr = renderedNoteCoords[voiceName][m] || [];
+          for (const item of arr) {
+            flat.push({ ...item, mIdx: m, sys: Math.floor(m / 2) });
+          }
+        }
+
+        for (let i = 0; i < flat.length - 1; i++) {
+          const n1 = flat[i];
+          const n2 = flat[i + 1];
+          if (!n1.note.tieToNext) continue;
+          if (!n1.visible || !n2.visible) continue;
+
+          const curveDir = n1.stemUp ? 1 : -1;
+          const yOff = curveDir * 6.0;
+          const sag = curveDir * 11.5;
+
+          if (n1.sys === n2.sys) {
+            const x1 = n1.x + 5.5;
+            const x2 = n2.x - 5.5;
+            const y = n1.y + yOff;
+            svg.appendChild(svgEl('path', {
+              d: `M ${x1} ${y} Q ${(x1 + x2) / 2} ${y + sag} ${x2} ${y}`,
+              fill: 'none', stroke: '#1c1917', 'stroke-width': 1.65, 'stroke-linecap': 'round'
+            }));
+          } else {
+            const x1 = n1.x + 5.5;
+            const y1 = n1.y + yOff;
+            svg.appendChild(svgEl('path', {
+              d: `M ${x1} ${y1} Q ${x1 + 10} ${y1 + sag * 0.85} ${x1 + 19} ${y1 + sag * 0.45}`,
+              fill: 'none', stroke: '#1c1917', 'stroke-width': 1.65, 'stroke-linecap': 'round'
+            }));
+            const x2 = n2.x - 5.5;
+            const y2 = n2.y + yOff;
+            svg.appendChild(svgEl('path', {
+              d: `M ${x2 - 17} ${y2 + sag * 0.45} Q ${x2 - 9} ${y2 + sag * 0.85} ${x2} ${y2}`,
+              fill: 'none', stroke: '#1c1917', 'stroke-width': 1.65, 'stroke-linecap': 'round'
+            }));
+          }
+        }
+      }
+    }
+
+    /* =========================================================================
+       5. MINI SVG RENDERER FOR RHYTHM BLOCK DRAWER
+       ========================================================================= */
+    function renderMiniBlockSVG(blockDef) {
+      const refMeter = blockDef.meterType === 'compound' ? METERS['6/8'] : METERS['4/4'];
+      const W = 72;
+      const H = 36;
+      const staffY = 26;
+      const beamTopY = staffY - 15;
+
+      const notes = blockDef.durs.map((d) => {
+        const wq = getWrittenQuarters(d, blockDef.tuplet, refMeter);
+        return { d, vis: writtenQuartersToVisual(wq), x: 0 };
+      });
+
+      const leftM = 11;
+      const rightM = W - 13;
+      if (notes.length === 1) {
+        notes[0].x = W / 2 - 2;
+      } else {
+        const step = (rightM - leftM) / (notes.length - 1);
+        notes.forEach((n, idx) => { n.x = leftM + idx * step; });
+      }
+
+      let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+      svg += `<line x1="4" y1="${staffY}" x2="${W - 4}" y2="${staffY}" stroke="#cbd5e1" stroke-width="1" />`;
+
+      let i = 0;
+      while (i < notes.length) {
+        if (notes[i].vis.beams === 0) { i++; continue; }
+        let j = i;
+        while (j + 1 < notes.length && notes[j + 1].vis.beams >= 1) j++;
+
+        if (i === j) {
+          const sx = notes[i].x + 3.2;
+          for (let f = 0; f < notes[i].vis.beams; f++) {
+            const fy = beamTopY + f * 3.4;
+            svg += `<path d="M ${sx} ${fy} Q ${sx + 5} ${fy + 2.8} ${sx + 3.8} ${fy + 7.5}" fill="none" stroke="#1c1917" stroke-width="1.35" stroke-linecap="round" />`;
+          }
+        } else {
+          const x1 = notes[i].x + 3.2;
+          const x2 = notes[j].x + 3.2;
+          svg += `<rect x="${x1 - 0.4}" y="${beamTopY}" width="${x2 - x1 + 0.8}" height="2.2" fill="#1c1917" />`;
+
+          for (let level = 2; level <= 2; level++) {
+            const yOff = beamTopY + (level - 1) * 3.2;
+            let k = i;
+            while (k <= j) {
+              if (notes[k].vis.beams < level) { k++; continue; }
+              let m = k;
+              while (m + 1 <= j && notes[m + 1].vis.beams >= level) m++;
+              if (m > k) {
+                svg += `<rect x="${notes[k].x + 2.8}" y="${yOff}" width="${notes[m].x - notes[k].x + 0.8}" height="2.0" fill="#1c1917" />`;
+              } else {
+                const sx = notes[k].x + 3.2;
+                const dir = k === i ? 1 : (k === j ? -1 : (notes[k - 1].d >= notes[k + 1].d ? -1 : 1));
+                const stubLen = 4.5;
+                svg += `<rect x="${dir === 1 ? sx : sx - stubLen}" y="${yOff}" width="${stubLen}" height="2.0" fill="#1c1917" />`;
+              }
+              k = m + 1;
+            }
+          }
+        }
+        i = j + 1;
+      }
+
+      if (blockDef.tuplet) {
+        const bx1 = notes[0].x - 2;
+        const bx2 = notes[notes.length - 1].x + 6.5;
+        const mid = (bx1 + bx2) / 2;
+        const by = beamTopY - 4.5;
+        svg += `<path d="M ${bx1} ${by + 2.5} L ${bx1} ${by} L ${mid - 4.2} ${by} M ${mid + 4.2} ${by} L ${bx2} ${by} L ${bx2} ${by + 2.5}" fill="none" stroke="#1c1917" stroke-width="1" />`;
+        svg += `<text x="${mid}" y="${by + 2.4}" font-size="8" font-weight="800" font-style="italic" text-anchor="middle" fill="#1c1917">${blockDef.tuplet}</text>`;
+      }
+
+      notes.forEach(n => {
+        const { head, stem, dots } = n.vis;
+        if (head === 'whole') {
+          svg += `<ellipse cx="${n.x}" cy="${staffY}" rx="4.3" ry="2.9" fill="#ffffff" stroke="#1c1917" stroke-width="1.4" />`;
+        } else if (head === 'half') {
+          svg += `<ellipse cx="${n.x}" cy="${staffY}" rx="3.9" ry="2.8" transform="rotate(-18 ${n.x} ${staffY})" fill="#ffffff" stroke="#1c1917" stroke-width="1.4" />`;
+        } else {
+          svg += `<ellipse cx="${n.x}" cy="${staffY}" rx="3.7" ry="2.6" transform="rotate(-18 ${n.x} ${staffY})" fill="#1c1917" />`;
+        }
+        if (stem) {
+          svg += `<line x1="${n.x + 3.2}" y1="${staffY - 0.8}" x2="${n.x + 3.2}" y2="${beamTopY}" stroke="#1c1917" stroke-width="1.25" />`;
+        }
+        for (let d = 0; d < dots; d++) {
+          svg += `<circle cx="${n.x + 6.6 + d * 3.1}" cy="${staffY - 2.5}" r="1.3" fill="#1c1917" />`;
+        }
+      });
+
+      svg += `</svg>`;
+      return svg;
+    }
+
+    /* =========================================================================
+       6. WEB AUDIO SYNTHESIS ENGINE
+       ========================================================================= */
+    let liveCtx = null;
+    let isPlaying = false;
+    let playbackRafId = null;
+    let playbackEndTimer = null;
+    let activePlaySchedule = null;
+
+    function midiToFreq(midi) {
+      return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
+    function extractVoiceEvents(exercise, voiceName, startBar, endBar) {
+      const clef = voiceName === 'soprano' ? 'treble' : 'bass';
+      const beatsPerBar = exercise.meter.beats;
+      const flat = [];
+
+      for (let m = 0; m < 8; m++) {
+        const list = exercise.measures[m][voiceName] || [];
+        list.forEach((n, nIdx) => {
+          flat.push({
+            mIdx: m,
+            nIdx,
+            note: n,
+            domId: `${clef}-m${m}-n${nIdx}`
+          });
+        });
+      }
+
+      const events = [];
+      let i = 0;
+      while (i < flat.length) {
+        const startItem = flat[i];
+        let soundingBeats = startItem.note.dur;
+        const segments = [{
+          mIdx: startItem.mIdx,
+          domId: startItem.domId,
+          durBeats: startItem.note.dur
+        }];
+
+        let j = i;
+        while (flat[j].note.tieToNext && j + 1 < flat.length) {
+          j++;
+          soundingBeats += flat[j].note.dur;
+          segments.push({
+            mIdx: flat[j].mIdx,
+            domId: flat[j].domId,
+            durBeats: flat[j].note.dur
+          });
+        }
+
+        const firstSegM = segments[0].mIdx;
+        if (firstSegM >= startBar && firstSegM <= endBar) {
+          let startBeatsInRange = 0;
+          for (let m = startBar; m < firstSegM; m++) {
+            startBeatsInRange += beatsPerBar;
+          }
+          const inBarList = exercise.measures[firstSegM][voiceName] || [];
+          for (let k = 0; k < startItem.nIdx; k++) {
+            startBeatsInRange += inBarList[k].dur;
+          }
+
+          let runningBeats = startBeatsInRange;
+          const mappedSegments = segments.map(seg => {
+            const obj = {
+              domId: seg.domId,
+              startBeats: runningBeats,
+              durBeats: seg.durBeats
+            };
+            runningBeats += seg.durBeats;
+            return obj;
+          });
+
+          events.push({
+            midi: startItem.note.midi,
+            startBeats: startBeatsInRange,
+            soundingBeats,
+            noteSegments: mappedSegments
+          });
+        }
+
+        i = j + 1;
+      }
+
+      const totalBeats = (endBar - startBar + 1) * beatsPerBar;
+      return { events, totalBeats };
+    }
+
+    /**
+     * Concert Grand Piano Soundboard & Sympathetic Resonance Bus
+     */
+    function createGrandPianoBus(ctx, destination) {
+      const input = ctx.createGain();
+      input.gain.setValueAtTime(1.0, 0);
+
+      // Low-end body weight & spruce soundboard warmth (thicker, fuller tone)
+      const lowBodyShelf = ctx.createBiquadFilter();
+      lowBodyShelf.type = 'lowshelf';
+      lowBodyShelf.frequency.setValueAtTime(175, 0);
+      lowBodyShelf.gain.setValueAtTime(3.6, 0);
+
+      const warmthEq = ctx.createBiquadFilter();
+      warmthEq.type = 'peaking';
+      warmthEq.frequency.setValueAtTime(320, 0);
+      warmthEq.Q.setValueAtTime(1.0, 0);
+      warmthEq.gain.setValueAtTime(3.2, 0);
+
+      // Crisp hammer/key presence around 2.3kHz while keeping upper sparkle clean
+      const hammerPresence = ctx.createBiquadFilter();
+      hammerPresence.type = 'peaking';
+      hammerPresence.frequency.setValueAtTime(2350, 0);
+      hammerPresence.Q.setValueAtTime(1.1, 0);
+      hammerPresence.gain.setValueAtTime(2.6, 0);
+
+      input.connect(lowBodyShelf);
+      lowBodyShelf.connect(warmthEq);
+      warmthEq.connect(hammerPresence);
+
+      // Direct dry signal
+      const dryGain = ctx.createGain();
+      dryGain.gain.setValueAtTime(0.88, 0);
+      hammerPresence.connect(dryGain);
+      dryGain.connect(destination);
+
+      // Sympathetic string & soundboard stereo resonance tail
+      if (ctx.createStereoPanner) {
+        const leftDelay = ctx.createDelay(0.2);
+        const rightDelay = ctx.createDelay(0.2);
+        leftDelay.delayTime.setValueAtTime(0.031, 0);
+        rightDelay.delayTime.setValueAtTime(0.047, 0);
+
+        const fbLeft = ctx.createGain();
+        const fbRight = ctx.createGain();
+        fbLeft.gain.setValueAtTime(0.22, 0);
+        fbRight.gain.setValueAtTime(0.22, 0);
+
+        const wetLp = ctx.createBiquadFilter();
+        wetLp.type = 'lowpass';
+        wetLp.frequency.setValueAtTime(1850, 0);
+
+        const panL = ctx.createStereoPanner();
+        const panR = ctx.createStereoPanner();
+        panL.pan.setValueAtTime(-0.58, 0);
+        panR.pan.setValueAtTime(0.58, 0);
+
+        const wetGain = ctx.createGain();
+        wetGain.gain.setValueAtTime(0.22, 0);
+
+        hammerPresence.connect(wetLp);
+        wetLp.connect(leftDelay);
+        wetLp.connect(rightDelay);
+
+        // Gentle damped feedback loop for natural piano body resonance
+        leftDelay.connect(fbLeft);
+        fbLeft.connect(wetLp);
+        rightDelay.connect(fbRight);
+        fbRight.connect(wetLp);
+
+        leftDelay.connect(panL);
+        rightDelay.connect(panR);
+        panL.connect(wetGain);
+        panR.connect(wetGain);
+        wetGain.connect(destination);
+      }
+
+      return input;
+    }
+
+    /**
+     * Bowed Cello Acoustic Body & Hall Resonance Bus (separate from Piano Bus)
+     */
+    function createCelloBodyBus(ctx, destination) {
+      const input = ctx.createGain();
+      input.gain.setValueAtTime(1.0, 0);
+
+      // Warm wooden lower-bout / air cavity depth (135Hz) + rich cello chest (265Hz)
+      const airShelf = ctx.createBiquadFilter();
+      airShelf.type = 'lowshelf';
+      airShelf.frequency.setValueAtTime(135, 0);
+      airShelf.gain.setValueAtTime(5.2, 0);
+
+      const chestEq = ctx.createBiquadFilter();
+      chestEq.type = 'peaking';
+      chestEq.frequency.setValueAtTime(265, 0);
+      chestEq.Q.setValueAtTime(1.6, 0);
+      chestEq.gain.setValueAtTime(5.5, 0);
+
+      // Tame harsh upper-mid / metallic edge so bowed tone stays round
+      const smoothHighShelf = ctx.createBiquadFilter();
+      smoothHighShelf.type = 'highshelf';
+      smoothHighShelf.frequency.setValueAtTime(1450, 0);
+      smoothHighShelf.gain.setValueAtTime(-6.5, 0);
+
+      input.connect(airShelf);
+      airShelf.connect(chestEq);
+      chestEq.connect(smoothHighShelf);
+
+      const dryGain = ctx.createGain();
+      dryGain.gain.setValueAtTime(0.92, 0);
+      smoothHighShelf.connect(dryGain);
+      dryGain.connect(destination);
+
+      if (ctx.createStereoPanner) {
+        const dL = ctx.createDelay(0.25);
+        const dR = ctx.createDelay(0.25);
+        dL.delayTime.setValueAtTime(0.038, 0);
+        dR.delayTime.setValueAtTime(0.056, 0);
+
+        const fbL = ctx.createGain();
+        const fbR = ctx.createGain();
+        fbL.gain.setValueAtTime(0.26, 0);
+        fbR.gain.setValueAtTime(0.26, 0);
+
+        const bodyLp = ctx.createBiquadFilter();
+        bodyLp.type = 'lowpass';
+        bodyLp.frequency.setValueAtTime(980, 0);
+
+        const panL = ctx.createStereoPanner();
+        const panR = ctx.createStereoPanner();
+        panL.pan.setValueAtTime(-0.45, 0);
+        panR.pan.setValueAtTime(0.45, 0);
+
+        const wetGain = ctx.createGain();
+        wetGain.gain.setValueAtTime(0.25, 0);
+
+        smoothHighShelf.connect(bodyLp);
+        bodyLp.connect(dL);
+        bodyLp.connect(dR);
+        dL.connect(fbL);
+        fbL.connect(bodyLp);
+        dR.connect(fbR);
+        fbR.connect(bodyLp);
+
+        dL.connect(panL);
+        dR.connect(panR);
+        panL.connect(wetGain);
+        panR.connect(wetGain);
+        wetGain.connect(destination);
+      }
+
+      return input;
+    }
+
+    function scheduleVoiceAudio(ctx, destination, freq, startTime, durationSec, voiceType, isSolo, timbre, bassBoost = false, pianoBus = null, celloBus = null) {
+      const targetDest = timbre === 'piano'
+        ? (pianoBus || destination)
+        : ((timbre === 'oboe_cello' && voiceType === 'bass') || timbre === 'cello')
+          ? (celloBus || destination)
+          : destination;
+      const masterGain = ctx.createGain();
+      const panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+      if (panner) {
+        panner.pan.setValueAtTime(isSolo ? 0 : (voiceType === 'soprano' ? 0.14 : -0.14), startTime);
+        masterGain.connect(panner);
+        panner.connect(targetDest);
+      } else {
+        masterGain.connect(targetDest);
+      }
+
+      const release = timbre === 'piano' ? 0.145 : 0.16;
+      const stopTime = startTime + durationSec + release;
+      const boostBassActive = bassBoost && voiceType === 'bass';
+      const attenuateSopForBass = bassBoost && !isSolo && voiceType === 'soprano';
+
+      if (timbre === 'oboe_cello' || timbre === 'cello') {
+        if (voiceType === 'soprano' && timbre === 'oboe_cello') {
+          // Expressive Double-Reed Oboe Synthesis
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          osc1.type = 'sawtooth';
+          osc2.type = 'square';
+          osc1.frequency.setValueAtTime(freq, startTime);
+          osc2.frequency.setValueAtTime(freq, startTime);
+
+          const mix1 = ctx.createGain();
+          const mix2 = ctx.createGain();
+          mix1.gain.setValueAtTime(0.68, startTime);
+          mix2.gain.setValueAtTime(0.24, startTime);
+
+          const lfo = ctx.createOscillator();
+          const lfoGain = ctx.createGain();
+          lfo.type = 'sine';
+          lfo.frequency.setValueAtTime(5.2, startTime);
+          lfoGain.gain.setValueAtTime(0, startTime);
+          lfoGain.gain.linearRampToValueAtTime(freq * 0.0045, startTime + Math.min(0.22, durationSec * 0.4));
+          lfo.connect(lfoGain);
+          lfoGain.connect(osc1.frequency);
+          lfoGain.connect(osc2.frequency);
+
+          const formant1 = ctx.createBiquadFilter();
+          formant1.type = 'peaking';
+          formant1.frequency.setValueAtTime(1150, startTime);
+          formant1.Q.setValueAtTime(4.2, startTime);
+          formant1.gain.setValueAtTime(11, startTime);
+
+          const formant2 = ctx.createBiquadFilter();
+          formant2.type = 'peaking';
+          formant2.frequency.setValueAtTime(2750, startTime);
+          formant2.Q.setValueAtTime(5.0, startTime);
+          formant2.gain.setValueAtTime(8, startTime);
+
+          const lp = ctx.createBiquadFilter();
+          lp.type = 'lowpass';
+          lp.frequency.setValueAtTime(4200, startTime);
+
+          osc1.connect(mix1);
+          osc2.connect(mix2);
+          mix1.connect(formant1);
+          mix2.connect(formant1);
+          formant1.connect(formant2);
+          formant2.connect(lp);
+          lp.connect(masterGain);
+
+          const peakGain = isSolo ? 0.25 : (attenuateSopForBass ? 0.17 : 0.21);
+          const attack = 0.032;
+          const holdEnd = Math.max(startTime + attack + 0.01, startTime + durationSec - 0.02);
+          masterGain.gain.setValueAtTime(0.0001, startTime);
+          masterGain.gain.linearRampToValueAtTime(peakGain, startTime + attack);
+          masterGain.gain.setValueAtTime(peakGain * 0.92, holdEnd);
+          masterGain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
+
+          osc1.start(startTime);
+          osc2.start(startTime);
+          lfo.start(startTime);
+          osc1.stop(stopTime + 0.02);
+          osc2.stop(stopTime + 0.02);
+          lfo.stop(stopTime + 0.02);
+        } else {
+          // Distinct Bowed Cello Synthesis:
+          // Smooth rosined bow ramp (no hammer spike), warm lower-mid body, gentle pitch/filter breathing
+          const oscBow1 = ctx.createOscillator();
+          const oscBow2 = ctx.createOscillator();
+          const oscSub = ctx.createOscillator();
+          oscBow1.type = 'sawtooth';
+          oscBow2.type = 'triangle';
+          oscSub.type = 'sine';
+          oscBow1.frequency.setValueAtTime(freq, startTime);
+          oscBow2.frequency.setValueAtTime(freq, startTime);
+          oscBow2.detune.setValueAtTime(5.5, startTime);
+          oscSub.frequency.setValueAtTime(freq * 0.5, startTime);
+
+          const mixBow1 = ctx.createGain();
+          const mixBow2 = ctx.createGain();
+          const mixSub = ctx.createGain();
+          mixBow1.gain.setValueAtTime(boostBassActive ? 0.44 : 0.36, startTime);
+          mixBow2.gain.setValueAtTime(boostBassActive ? 0.46 : 0.40, startTime);
+          mixSub.gain.setValueAtTime(boostBassActive ? 0.34 : 0.26, startTime);
+
+          // Gentle expressive vibrato & slow bow-direction swell
+          const lfo = ctx.createOscillator();
+          const lfoGain = ctx.createGain();
+          lfo.type = 'sine';
+          lfo.frequency.setValueAtTime(4.8, startTime);
+          lfoGain.gain.setValueAtTime(0, startTime);
+          lfoGain.gain.linearRampToValueAtTime(freq * 0.007, startTime + Math.min(0.32, durationSec * 0.55));
+          lfo.connect(lfoGain);
+          lfoGain.connect(oscBow1.frequency);
+          lfoGain.connect(oscBow2.frequency);
+
+          // Lowpass filter opens smoothly as bow settles into the string, then stays warm
+          const bowLp = ctx.createBiquadFilter();
+          bowLp.type = 'lowpass';
+          bowLp.Q.setValueAtTime(0.75, startTime);
+          const peakCutoff = Math.min(680, freq * 3.8);
+          const restCutoff = Math.min(490, freq * 2.7);
+          bowLp.frequency.setValueAtTime(Math.max(190, freq * 1.45), startTime);
+          bowLp.frequency.linearRampToValueAtTime(peakCutoff, startTime + Math.min(0.18, durationSec * 0.5));
+          bowLp.frequency.linearRampToValueAtTime(restCutoff, startTime + Math.min(0.45, durationSec * 0.9));
+
+          oscBow1.connect(mixBow1);
+          oscBow2.connect(mixBow2);
+          oscSub.connect(mixSub);
+          mixBow1.connect(bowLp);
+          mixBow2.connect(bowLp);
+          mixSub.connect(bowLp);
+          bowLp.connect(masterGain);
+
+          const peakGain = isSolo
+            ? (boostBassActive ? 0.46 : 0.38)
+            : (boostBassActive ? 0.43 : 0.34);
+          // Smooth bowed entry (no sharp transient), sustained bow draw, soft release
+          const attack = boostBassActive ? 0.12 : 0.14;
+          const swellTime = Math.min(startTime + durationSec * 0.55, startTime + attack + 0.25);
+          const sustainEnd = Math.max(startTime + attack + 0.02, startTime + durationSec - 0.02);
+
+          masterGain.gain.setValueAtTime(0.0001, startTime);
+          masterGain.gain.linearRampToValueAtTime(peakGain * 0.72, startTime + attack);
+          masterGain.gain.linearRampToValueAtTime(peakGain, swellTime);
+          masterGain.gain.linearRampToValueAtTime(peakGain * 0.9, sustainEnd);
+          masterGain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
+
+          oscBow1.start(startTime);
+          oscBow2.start(startTime);
+          oscSub.start(startTime);
+          lfo.start(startTime);
+          oscBow1.stop(stopTime + 0.02);
+          oscBow2.stop(stopTime + 0.02);
+          oscSub.stop(stopTime + 0.02);
+          lfo.stop(stopTime + 0.02);
+        }
+        return;
+      }
+
+      // Keyboard / Concert Grand Piano Synthesis ('piano' or single-melody 'oboe'):
+      if (timbre === 'oboe') {
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        osc1.type = 'sawtooth';
+        osc2.type = 'square';
+        osc1.frequency.setValueAtTime(freq, startTime);
+        osc2.frequency.setValueAtTime(freq, startTime);
+
+        const mix1 = ctx.createGain();
+        const mix2 = ctx.createGain();
+        mix1.gain.setValueAtTime(0.68, startTime);
+        mix2.gain.setValueAtTime(0.24, startTime);
+
+        const formant1 = ctx.createBiquadFilter();
+        formant1.type = 'peaking';
+        formant1.frequency.setValueAtTime(1150, startTime);
+        formant1.Q.setValueAtTime(4.2, startTime);
+        formant1.gain.setValueAtTime(11, startTime);
+
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.setValueAtTime(4200, startTime);
+
+        osc1.connect(mix1);
+        osc2.connect(mix2);
+        mix1.connect(formant1);
+        mix2.connect(formant1);
+        formant1.connect(lp);
+        lp.connect(masterGain);
+
+        const peakGain = 0.25;
+        const attack = 0.03;
+        const holdEnd = Math.max(startTime + attack + 0.01, startTime + durationSec - 0.02);
+        masterGain.gain.setValueAtTime(0.0001, startTime);
+        masterGain.gain.linearRampToValueAtTime(peakGain, startTime + attack);
+        masterGain.gain.setValueAtTime(peakGain * 0.92, holdEnd);
+        masterGain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
+
+        osc1.start(startTime);
+        osc2.start(startTime);
+        osc1.stop(stopTime + 0.02);
+        osc2.stop(stopTime + 0.02);
+        return;
+      }
+
+      // Crisp percussive felt-hammer attack, bright-warm string partials, and natural gradual string decay
+      const dynamicFilter = ctx.createBiquadFilter();
+      dynamicFilter.type = 'lowpass';
+      dynamicFilter.Q.setValueAtTime(1.1, startTime);
+
+      const attackCutoff = voiceType === 'soprano'
+        ? Math.min(5600, freq * 9.0)
+        : (boostBassActive ? Math.min(4600, freq * 14.5) : Math.min(4100, freq * 12.5));
+      const sustainCutoff = voiceType === 'soprano'
+        ? Math.min(2800, freq * 4.4)
+        : (boostBassActive ? Math.min(2400, freq * 6.8) : Math.min(2100, freq * 5.8));
+
+      dynamicFilter.frequency.setValueAtTime(attackCutoff, startTime);
+      dynamicFilter.frequency.exponentialRampToValueAtTime(Math.max(360, sustainCutoff), startTime + 0.16);
+      dynamicFilter.frequency.exponentialRampToValueAtTime(Math.max(280, sustainCutoff * 0.82), startTime + Math.min(durationSec + 0.08, 3.0));
+      dynamicFilter.connect(masterGain);
+
+      // Distinct Keyboard Hammer-Strike Transient (absent in bowed cello)
+      const hammerFilter = ctx.createBiquadFilter();
+      hammerFilter.type = 'bandpass';
+      hammerFilter.frequency.setValueAtTime(voiceType === 'bass' ? 520 : 950, startTime);
+      hammerFilter.Q.setValueAtTime(1.4, startTime);
+      hammerFilter.connect(masterGain);
+
+      const hammerOsc = ctx.createOscillator();
+      const hammerGain = ctx.createGain();
+      hammerOsc.type = 'triangle';
+      hammerOsc.frequency.setValueAtTime(Math.min(620, freq * 2.5 + 140), startTime);
+      hammerOsc.frequency.exponentialRampToValueAtTime(85, startTime + 0.024);
+
+      hammerGain.gain.setValueAtTime(0.0001, startTime);
+      hammerGain.gain.linearRampToValueAtTime(voiceType === 'soprano' ? 0.28 : 0.38, startTime + 0.0025);
+      hammerGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.028);
+
+      hammerOsc.connect(hammerGain);
+      hammerGain.connect(hammerFilter);
+      hammerOsc.start(startTime);
+      hammerOsc.stop(startTime + 0.032);
+
+      // Keyboard Struck-String Harmonics (richer upper overtones & faster initial hammer-to-sustain drop than cello)
+      const partials = voiceType === 'bass'
+        ? [
+            { mult: 1.0, detune: -2.2, type: 'sine',     gain: boostBassActive ? 0.48 : 0.42, decay: 0.34 },
+            { mult: 1.0, detune:  2.2, type: 'triangle', gain: boostBassActive ? 0.30 : 0.25, decay: 0.40 },
+            { mult: 2.0, detune:  1.1, type: 'triangle', gain: boostBassActive ? 0.36 : 0.30, decay: 0.62 },
+            { mult: 3.0, detune: -1.4, type: 'sine',     gain: boostBassActive ? 0.24 : 0.19, decay: 1.05 },
+            { mult: 4.0, detune:  1.6, type: 'sine',     gain: boostBassActive ? 0.14 : 0.10, decay: 1.55 },
+            { mult: 5.0, detune: -1.0, type: 'sine',     gain: boostBassActive ? 0.07 : 0.05, decay: 2.1 }
+          ]
+        : [
+            { mult: 1.0, detune: -2.4, type: 'sine',     gain: 0.54, decay: 0.26 },
+            { mult: 1.0, detune:  2.4, type: 'triangle', gain: 0.28, decay: 0.32 },
+            { mult: 2.0, detune:  1.3, type: 'sine',     gain: 0.31, decay: 0.58 },
+            { mult: 3.0, detune: -1.4, type: 'sine',     gain: 0.13, decay: 1.15 },
+            { mult: 4.0, detune:  1.7, type: 'sine',     gain: 0.05, decay: 1.9 }
+          ];
+
+      const peakGain = isSolo
+        ? (boostBassActive ? 0.50 : 0.42)
+        : (boostBassActive ? 0.46 : (attenuateSopForBass ? 0.27 : 0.33));
+
+      // Percussive 5ms hammer attack -> clear initial decay -> steady sustain plateau
+      const attackEnd = startTime + 0.005;
+      const initialDecayEnd = Math.min(startTime + 0.095, startTime + durationSec * 0.6);
+      const damperStart = Math.max(initialDecayEnd + 0.01, startTime + durationSec - 0.012);
+      const initialSustainLevel = peakGain * 0.78;
+      const heldSustainLevel = Math.max(peakGain * 0.68, initialSustainLevel * Math.exp(-0.22 * Math.max(0, damperStart - initialDecayEnd)));
+
+      masterGain.gain.setValueAtTime(0.0001, startTime);
+      masterGain.gain.linearRampToValueAtTime(peakGain, attackEnd);
+      masterGain.gain.exponentialRampToValueAtTime(initialSustainLevel, initialDecayEnd);
+      masterGain.gain.setValueAtTime(heldSustainLevel, damperStart);
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
+
+      partials.forEach(p => {
+        const osc = ctx.createOscillator();
+        const pGain = ctx.createGain();
+        osc.type = p.type;
+        osc.frequency.setValueAtTime(freq * p.mult, startTime);
+        if (p.detune) osc.detune.setValueAtTime(p.detune, startTime);
+
+        const pPeak = peakGain * p.gain;
+        const pSustainEnd = Math.max(startTime + 0.015, startTime + durationSec);
+        const pSustainVal = Math.max(0.0002, pPeak * Math.exp(-p.decay * Math.min(durationSec, 2.2)));
+
+        pGain.gain.setValueAtTime(0.0001, startTime);
+        pGain.gain.linearRampToValueAtTime(pPeak, attackEnd);
+        pGain.gain.exponentialRampToValueAtTime(pSustainVal, pSustainEnd);
+        pGain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
+
+        osc.connect(pGain);
+        pGain.connect(dynamicFilter);
+        osc.start(startTime);
+        osc.stop(stopTime + 0.02);
+      });
+    }
+
+    function getActiveAudioConfig() {
+      if (state.musicMode === 'single_melody') {
+        const isTreble = state.singleClef === 'treble';
+        const voiceName = isTreble ? 'soprano' : 'bass';
+        const timbre = isTreble ? state.singleTrebleTimbre : state.singleBassTimbre;
+        return {
+          playSop: isTreble,
+          playBass: !isTreble,
+          singleVoiceName: voiceName,
+          timbre,
+          bassBoost: !isTreble && state.bassBoost
+        };
+      }
+      return {
+        playSop: state.playSoprano,
+        playBass: state.playBass,
+        singleVoiceName: null,
+        timbre: state.timbre,
+        bassBoost: state.bassBoost
+      };
+    }
+
+    function buildAudioSchedule(ctx, destination, exercise, playSop, playBass, rangeStr, bpm, timbre, bassBoost = false) {
+      const [sStr, eStr] = rangeStr.split('-');
+      const startBar = parseInt(sStr, 10) - 1;
+      const endBar = parseInt(eStr, 10) - 1;
+      const secPerBeat = 60.0 / bpm;
+      const leadSec = 0.04;
+
+      const pianoBus = timbre === 'piano' ? createGrandPianoBus(ctx, destination) : null;
+      const celloBus = (timbre === 'oboe_cello' || timbre === 'cello') ? createCelloBodyBus(ctx, destination) : null;
+      const isSolo = !(playSop && playBass);
+      const allSegments = [];
+      let totalBeats = 0;
+
+      if (playSop) {
+        const { events, totalBeats: tb } = extractVoiceEvents(exercise, 'soprano', startBar, endBar);
+        totalBeats = Math.max(totalBeats, tb);
+        events.forEach(ev => {
+          scheduleVoiceAudio(ctx, destination, midiToFreq(ev.midi), leadSec + ev.startBeats * secPerBeat, ev.soundingBeats * secPerBeat, 'soprano', isSolo, timbre, bassBoost, pianoBus, celloBus);
+          allSegments.push(...ev.noteSegments);
+        });
+      }
+
+      if (playBass) {
+        const { events, totalBeats: tb } = extractVoiceEvents(exercise, 'bass', startBar, endBar);
+        totalBeats = Math.max(totalBeats, tb);
+        events.forEach(ev => {
+          scheduleVoiceAudio(ctx, destination, midiToFreq(ev.midi), leadSec + ev.startBeats * secPerBeat, ev.soundingBeats * secPerBeat, 'bass', isSolo, timbre, bassBoost, pianoBus, celloBus);
+          allSegments.push(...ev.noteSegments);
+        });
+      }
+
+      const totalDurationSec = leadSec + totalBeats * secPerBeat + 0.35;
+      return { totalDurationSec, leadSec, secPerBeat, startBar, endBar, allSegments };
+    }
+
+    function startPlayback() {
+      stopPlayback();
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      liveCtx = new AudioCtx();
+      isPlaying = true;
+
+      state.playCount += 1;
+      updatePlayCountUI();
+
+      const cfg = getActiveAudioConfig();
+      const sched = buildAudioSchedule(
+        liveCtx, liveCtx.destination, state.exercise,
+        cfg.playSop, cfg.playBass, state.rangeMode, state.bpm, cfg.timbre, cfg.bassBoost
+      );
+      activePlaySchedule = { ...sched, ctxStartTime: liveCtx.currentTime };
+
+      document.getElementById('btn-stop').disabled = false;
+      document.getElementById('btn-play').innerHTML = '<span>🔊 播放中...</span>';
+
+      playbackEndTimer = setTimeout(() => {
+        stopPlayback();
+      }, sched.totalDurationSec * 1000);
+
+      playbackRafId = requestAnimationFrame(updateVisualPlayhead);
+    }
+
+    function stopPlayback() {
+      isPlaying = false;
+      if (playbackRafId) { cancelAnimationFrame(playbackRafId); playbackRafId = null; }
+      if (playbackEndTimer) { clearTimeout(playbackEndTimer); playbackEndTimer = null; }
+      if (liveCtx) {
+        try { liveCtx.close(); } catch (_) {}
+        liveCtx = null;
+      }
+      activePlaySchedule = null;
+
+      document.getElementById('btn-stop').disabled = true;
+      document.getElementById('btn-play').innerHTML = '<span>▶ 播放選定片段</span>';
+      document.querySelectorAll('.playhead-line').forEach(el => el.setAttribute('opacity', '0'));
+      document.querySelectorAll('.note-group.active-note').forEach(el => el.classList.remove('active-note'));
+    }
+
+    function updateVisualPlayhead() {
+      if (!isPlaying || !liveCtx || !activePlaySchedule) return;
+
+      const { ctxStartTime, leadSec, secPerBeat, startBar, endBar, allSegments } = activePlaySchedule;
+      const elapsedMusicSec = (liveCtx.currentTime - ctxStartTime) - leadSec;
+      const elapsedBeats = elapsedMusicSec / secPerBeat;
+      const beatsPerBar = state.exercise.meter.beats;
+
+      document.querySelectorAll('.playhead-line').forEach(el => el.setAttribute('opacity', '0'));
+
+      if (elapsedBeats >= 0) {
+        const relBar = Math.floor(elapsedBeats / beatsPerBar);
+        const curBar = startBar + relBar;
+        const beatInBar = elapsedBeats - relBar * beatsPerBar;
+
+        if (curBar >= startBar && curBar <= endBar) {
+          const ph = document.getElementById(`playhead-m${curBar}`);
+          if (ph) {
+            const sx = parseFloat(ph.getAttribute('data-start-x'));
+            const ex = parseFloat(ph.getAttribute('data-end-x'));
+            const x = sx + (beatInBar / beatsPerBar) * (ex - sx);
+            ph.setAttribute('x1', x.toFixed(1));
+            ph.setAttribute('x2', x.toFixed(1));
+            ph.setAttribute('opacity', '0.9');
+          }
+        }
+      }
+
+      const activeIds = new Set();
+      if (elapsedBeats >= 0) {
+        for (const seg of allSegments) {
+          if (elapsedBeats >= seg.startBeats && elapsedBeats < seg.startBeats + seg.durBeats) {
+            activeIds.add(seg.domId);
+          }
+        }
+      }
+
+      document.querySelectorAll('.note-group.active-note').forEach(el => {
+        if (!activeIds.has(el.id)) el.classList.remove('active-note');
+      });
+      activeIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('active-note')) el.classList.add('active-note');
+      });
+
+      playbackRafId = requestAnimationFrame(updateVisualPlayhead);
+    }
+
+    /* =========================================================================
+       7. APPLICATION STATE & UI CONTROLLER
+       ========================================================================= */
+    const state = {
+      meter: '4/4',
+      selectedKeyId: 'auto',
+      previousKeyId: null,
+      tieMode: 'medium',            // Default 'medium' => 2–5 ties across 8 bars
+      sheetMode: 'question',        // 'question' | 'answer'
+      musicMode: 'two_voice',       // 'two_voice' | 'single_melody'
+      singleClef: 'treble',         // 'treble' | 'bass'
+      singleTrebleTimbre: 'piano',  // 'piano' | 'oboe'
+      singleBassTimbre: 'cello',    // 'cello' | 'piano'
+      playSoprano: true,            // Independent Soprano playback checkbox
+      playBass: true,               // Independent Bass playback checkbox
+      bassBoost: false,             // Bass clarity & volume boost mode
+      playCount: 0,                 // Playback counter for current exercise
+      rangeMode: '1-8',             // '1-8' | '1-2' | '3-4' | '5-6' | '7-8'
+      bpm: 68,
+      timbre: 'piano',              // 'piano' | 'oboe_cello'
+      drawerOpen: false,
+      drawerTab: 'simple',
+      enabledBlockIds: new Set(RHYTHM_BLOCKS.filter(b => b.defaultOn).map(b => b.id)),
+      exercise: null
+    };
+
+    function showToast(msg) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'bg-slate-900 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg border border-slate-700 transition-opacity duration-300';
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 320);
+      }, 2400);
+    }
+
+    function updatePlayCountUI() {
+      const el = document.getElementById('sheet-play-count-badge');
+      if (el) el.textContent = `🔊 累計播放：第 ${state.playCount} 次`;
+    }
+
+    function generateNewExercise() {
+      stopPlayback();
+      if (state.exercise && state.exercise.homeKey) {
+        state.previousKeyId = state.exercise.homeKey.id;
+      }
+      state.exercise = composeEightBarExercise();
+      state.playCount = 0;
+      updatePlayCountUI();
+      renderAll();
+    }
+
+    function selectMeter(meterKey) {
+      if (!METERS[meterKey]) return;
+      stopPlayback();
+      state.meter = meterKey;
+      state.drawerTab = METERS[meterKey].type;
+      state.exercise = composeEightBarExercise();
+      state.playCount = 0;
+      updatePlayCountUI();
+      renderAll();
+      showToast(`已切換拍號為 ${meterKey} 並重新出題`);
+    }
+
+    function selectKeyOption(keyId) {
+      stopPlayback();
+      state.selectedKeyId = keyId;
+      state.exercise = composeEightBarExercise();
+      state.playCount = 0;
+      updatePlayCountUI();
+      renderAll();
+    }
+
+    function setTieMode(mode) {
+      stopPlayback();
+      state.tieMode = mode;
+      const labels = {
+        none: '無（0 處）',
+        low: '少（1–2 處）',
+        medium: '中高（2–5 處）'
+      };
+      const lbl = document.getElementById('tie-mode-label');
+      if (lbl) lbl.textContent = labels[mode] || '中高（2–5 處）';
+
+      ['none', 'low', 'medium'].forEach(k => {
+        const btn = document.getElementById(`tie-btn-${k}`);
+        if (!btn) return;
+        btn.className = k === mode
+          ? 'py-1.5 rounded-lg text-xs font-extrabold border border-indigo-600 bg-indigo-600 text-white shadow-2xs transition cursor-pointer'
+          : 'py-1.5 rounded-lg text-xs font-extrabold border border-stone-200 bg-white text-slate-700 hover:border-indigo-500 transition cursor-pointer';
+      });
+
+      state.exercise = composeEightBarExercise();
+      state.playCount = 0;
+      updatePlayCountUI();
+      renderAll();
+    }
+
+    function setSheetMode(mode) {
+      stopPlayback();
+      state.sheetMode = mode;
+      renderAll();
+    }
+
+    function toggleVoiceCheck(voice, checked) {
+      stopPlayback();
+      if (voice === 'soprano') state.playSoprano = checked;
+      if (voice === 'bass') state.playBass = checked;
+      if (!state.playSoprano && !state.playBass) {
+        if (voice === 'soprano') state.playBass = true;
+        else state.playSoprano = true;
+        showToast('至少需勾選一個聲部進行播放或匯出');
+      }
+      renderAll();
+    }
+
+    function toggleBassBoost(checked) {
+      stopPlayback();
+      state.bassBoost = checked;
+      showToast(checked ? '已開啟低音略加強模式' : '已關閉低音略加強模式');
+    }
+
+    function selectRangeMode(rangeStr) {
+      stopPlayback();
+      state.rangeMode = rangeStr;
+      renderAll();
+    }
+
+    function updateBpm(val) {
+      const parsed = parseInt(val, 10);
+      if (!Number.isNaN(parsed)) {
+        state.bpm = parsed;
+        const el = document.getElementById('bpm-val');
+        if (el) el.textContent = String(parsed);
+      }
+    }
+
+    function selectTimbre(timbreKey) {
+      stopPlayback();
+      state.timbre = timbreKey;
+      ['piano', 'oboe_cello'].forEach(key => {
+        const btn = document.getElementById(`timbre-btn-${key}`);
+        if (!btn) return;
+        btn.className = key === timbreKey
+          ? 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold border border-indigo-600 bg-indigo-600 text-white shadow-2xs transition cursor-pointer'
+          : 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold border border-stone-200 bg-white text-slate-700 hover:border-indigo-500 transition cursor-pointer';
+      });
+    }
+
+    function toggleBlockLibrary() {
+      state.drawerOpen = !state.drawerOpen;
+      const drawer = document.getElementById('rhythm-block-drawer');
+      const btn = document.getElementById('btn-toggle-blocks');
+      if (drawer) {
+        drawer.classList.toggle('hidden', !state.drawerOpen);
+      }
+      if (btn) {
+        btn.innerHTML = state.drawerOpen ? '<span>收合積木庫 ▲</span>' : '<span>展開積木庫 ▼</span>';
+      }
+      if (state.drawerOpen) {
+        renderRhythmBlockDrawer();
+      }
+    }
+
+    function switchDrawerTab(tabType) {
+      state.drawerTab = tabType;
+      const tSimple = document.getElementById('drawer-tab-simple');
+      const tCompound = document.getElementById('drawer-tab-compound');
+      if (tSimple && tCompound) {
+        tSimple.className = tabType === 'simple'
+          ? 'px-2.5 py-1 rounded-lg text-xs font-extrabold bg-indigo-600 text-white shadow-2xs transition cursor-pointer'
+          : 'px-2.5 py-1 rounded-lg text-xs font-extrabold text-slate-600 hover:text-slate-900 transition cursor-pointer';
+        tCompound.className = tabType === 'compound'
+          ? 'px-2.5 py-1 rounded-lg text-xs font-extrabold bg-teal-600 text-white shadow-2xs transition cursor-pointer'
+          : 'px-2.5 py-1 rounded-lg text-xs font-extrabold text-slate-600 hover:text-slate-900 transition cursor-pointer';
+      }
+      renderRhythmBlockDrawer();
+    }
+
+    function toggleBlockInLibrary(blockId, checked) {
+      if (checked) state.enabledBlockIds.add(blockId);
+      else state.enabledBlockIds.delete(blockId);
+      updateBlockLibrarySummary();
+      renderRhythmBlockDrawer();
+    }
+
+    function bulkSelectBlocks(mode) {
+      const curType = METERS[state.meter].type;
+      RHYTHM_BLOCKS.filter(b => b.meterType === curType).forEach(b => {
+        if (mode === 'all') {
+          state.enabledBlockIds.add(b.id);
+        } else if (mode === 'default') {
+          if (b.basic || b.defaultOn) state.enabledBlockIds.add(b.id);
+          else state.enabledBlockIds.delete(b.id);
+        }
+      });
+      updateBlockLibrarySummary();
+      if (state.drawerOpen) renderRhythmBlockDrawer();
+      showToast(mode === 'all' ? '已全選目前拍號類別積木' : '已套用常用基礎積木');
+    }
+
+    function updateBlockLibrarySummary() {
+      const summary = document.getElementById('block-lib-summary');
+      if (!summary) return;
+      const mType = METERS[state.meter].type;
+      const totalInType = RHYTHM_BLOCKS.filter(b => b.meterType === mType).length;
+      const enabledInType = RHYTHM_BLOCKS.filter(b => b.meterType === mType && state.enabledBlockIds.has(b.id)).length;
+      const typeLabel = mType === 'compound' ? '複拍子' : '單拍子';
+      summary.textContent = `已啟用${typeLabel} ${enabledInType} / ${totalInType} 種積木（不含32分音符；${mType === 'compound' ? '不含四連音' : '不含六連音'}）`;
+    }
+
+    function renderRhythmBlockDrawer() {
+      const grid = document.getElementById('rhythm-block-grid');
+      if (!grid) return;
+      const blocks = RHYTHM_BLOCKS.filter(b => b.meterType === state.drawerTab);
+      grid.innerHTML = blocks.map(blk => {
+        const checked = state.enabledBlockIds.has(blk.id);
+        return `
+          <label class="rounded-xl border p-1.5 flex flex-col justify-between items-center gap-1 cursor-pointer select-none transition ${checked ? 'bg-indigo-50/60 border-indigo-300 text-slate-900' : 'bg-stone-50 border-stone-200 text-slate-400 opacity-65'}">
+            <div class="w-full flex items-center justify-between gap-1">
+              <span class="text-[10px] font-extrabold truncate">${blk.name}</span>
+              <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleBlockInLibrary('${blk.id}', this.checked)" class="w-3.5 h-3.5 accent-indigo-600 cursor-pointer shrink-0" />
+            </div>
+            <div class="w-full flex items-center justify-center">
+              ${renderMiniBlockSVG(blk)}
+            </div>
+          </label>
+        `;
+      }).join('');
+    }
+
+    function setMusicMode(mode) {
+      stopPlayback();
+      state.musicMode = mode;
+      renderAll();
+      showToast(mode === 'single_melody' ? '已切換為單旋律模式' : '已切換為二聲部模式');
+    }
+
+    function selectSingleClef(clef) {
+      stopPlayback();
+      state.singleClef = clef;
+      renderAll();
+    }
+
+    function selectSingleTimbre(timbreKey) {
+      stopPlayback();
+      if (state.singleClef === 'treble') {
+        state.singleTrebleTimbre = timbreKey;
+      } else {
+        state.singleBassTimbre = timbreKey;
+      }
+      renderSingleTimbreButtons();
+    }
+
+    function renderSingleTimbreButtons() {
+      const box = document.getElementById('single-timbre-buttons');
+      if (!box) return;
+      const isTreble = state.singleClef === 'treble';
+      const current = isTreble ? state.singleTrebleTimbre : state.singleBassTimbre;
+      const options = isTreble
+        ? [
+            { id: 'piano', label: '🎹 鋼琴' },
+            { id: 'oboe',  label: '🪈 雙簧管' }
+          ]
+        : [
+            { id: 'cello', label: '🎻 大提琴' },
+            { id: 'piano', label: '🎹 鋼琴' }
+          ];
+
+      box.innerHTML = options.map(opt => {
+        const active = current === opt.id;
+        const cls = active
+          ? 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold border border-indigo-600 bg-indigo-600 text-white shadow-2xs transition cursor-pointer'
+          : 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold border border-stone-200 bg-white text-slate-700 hover:border-indigo-500 transition cursor-pointer';
+        return `<button onclick="selectSingleTimbre('${opt.id}')" class="${cls}">${opt.label}</button>`;
+      }).join('');
+    }
+
+    function renderAll() {
+      const ex = state.exercise;
+      if (!ex) return;
+
+      const isSingleMelody = state.musicMode === 'single_melody';
+
+      // 1. Meter Buttons & Pill
+      document.querySelectorAll('.meter-btn').forEach(btn => {
+        const m = btn.dataset.meter;
+        const active = m === state.meter;
+        const isComp = METERS[m].type === 'compound';
+        btn.className = active
+          ? `meter-btn py-1.5 rounded-lg text-sm font-extrabold border shadow-2xs transition cursor-pointer ${isComp ? 'border-teal-600 bg-teal-600 text-white' : 'border-indigo-600 bg-indigo-600 text-white'}`
+          : 'meter-btn py-1.5 rounded-lg text-sm font-extrabold border border-stone-200 bg-white hover:border-indigo-500 transition cursor-pointer';
+      });
+      const pill = document.getElementById('meter-type-pill');
+      if (pill) {
+        pill.textContent = ex.meter.type === 'compound' ? '複拍子（附點四分1拍）' : '單拍子（四分1拍）';
+      }
+
+      // 2. Sheet Mode Buttons
+      const btnQ = document.getElementById('mode-btn-question');
+      const btnA = document.getElementById('mode-btn-answer');
+      if (btnQ && btnA) {
+        if (state.sheetMode === 'question') {
+          btnQ.className = 'py-1.5 px-2 rounded-lg text-xs font-extrabold bg-white text-slate-900 shadow-2xs transition cursor-pointer';
+          btnA.className = 'py-1.5 px-2 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer';
+        } else {
+          btnA.className = 'py-1.5 px-2 rounded-lg text-xs font-extrabold bg-amber-500 text-slate-950 shadow-2xs transition cursor-pointer';
+          btnQ.className = 'py-1.5 px-2 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer';
+        }
+      }
+
+      // 3. Music Mode & Voice/Clef Controls
+      const mBtnTwo = document.getElementById('music-mode-btn-two_voice');
+      const mBtnSingle = document.getElementById('music-mode-btn-single_melody');
+      const twoBox = document.getElementById('two-voice-controls');
+      const singleBox = document.getElementById('single-melody-controls');
+      const twoTimbreBox = document.getElementById('two-voice-timbre-box');
+
+      if (mBtnTwo && mBtnSingle) {
+        mBtnTwo.className = !isSingleMelody
+          ? 'px-2.5 py-1 rounded-lg text-xs font-extrabold bg-indigo-600 text-white shadow-2xs transition cursor-pointer'
+          : 'px-2.5 py-1 rounded-lg text-xs font-extrabold text-slate-600 hover:text-slate-900 transition cursor-pointer';
+        mBtnSingle.className = isSingleMelody
+          ? 'px-2.5 py-1 rounded-lg text-xs font-extrabold bg-teal-600 text-white shadow-2xs transition cursor-pointer'
+          : 'px-2.5 py-1 rounded-lg text-xs font-extrabold text-slate-600 hover:text-slate-900 transition cursor-pointer';
+      }
+
+      if (twoBox && singleBox && twoTimbreBox) {
+        if (isSingleMelody) {
+          twoBox.classList.add('hidden');
+          twoBox.classList.remove('flex');
+          singleBox.classList.remove('hidden');
+          singleBox.classList.add('flex');
+          twoTimbreBox.classList.add('hidden');
+        } else {
+          twoBox.classList.remove('hidden');
+          twoBox.classList.add('flex');
+          singleBox.classList.add('hidden');
+          singleBox.classList.remove('flex');
+          twoTimbreBox.classList.remove('hidden');
+        }
+      }
+
+      const cBtnTreble = document.getElementById('single-clef-btn-treble');
+      const cBtnBass = document.getElementById('single-clef-btn-bass');
+      if (cBtnTreble && cBtnBass) {
+        cBtnTreble.className = state.singleClef === 'treble'
+          ? 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold border border-indigo-600 bg-indigo-600 text-white shadow-2xs transition cursor-pointer'
+          : 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold border border-stone-200 bg-white text-slate-700 hover:border-indigo-500 transition cursor-pointer';
+        cBtnBass.className = state.singleClef === 'bass'
+          ? 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold border border-indigo-600 bg-indigo-600 text-white shadow-2xs transition cursor-pointer'
+          : 'px-2.5 py-1.5 rounded-lg text-xs font-extrabold border border-stone-200 bg-white text-slate-700 hover:border-indigo-500 transition cursor-pointer';
+      }
+      renderSingleTimbreButtons();
+
+      const chkSop = document.getElementById('chk-voice-soprano');
+      const chkBass = document.getElementById('chk-voice-bass');
+      const lblSop = document.getElementById('lbl-voice-soprano');
+      const lblBass = document.getElementById('lbl-voice-bass');
+      if (chkSop && lblSop) {
+        chkSop.checked = state.playSoprano;
+        lblSop.className = state.playSoprano
+          ? 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border border-indigo-600 bg-indigo-50 text-indigo-950 shadow-2xs transition cursor-pointer select-none'
+          : 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-stone-200 bg-stone-50 text-slate-500 transition cursor-pointer select-none';
+      }
+      if (chkBass && lblBass) {
+        chkBass.checked = state.playBass;
+        lblBass.className = state.playBass
+          ? 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border border-indigo-600 bg-indigo-50 text-indigo-950 shadow-2xs transition cursor-pointer select-none'
+          : 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-stone-200 bg-stone-50 text-slate-500 transition cursor-pointer select-none';
+      }
+
+      document.querySelectorAll('.range-btn').forEach(btn => {
+        const active = btn.dataset.range === state.rangeMode;
+        btn.className = active
+          ? 'range-btn px-2.5 py-1.5 rounded-xl text-xs font-extrabold border border-teal-600 bg-teal-600 text-white shadow-2xs transition cursor-pointer'
+          : 'range-btn px-2.5 py-1.5 rounded-xl text-xs font-extrabold border border-stone-200 bg-stone-50 text-slate-700 hover:border-teal-600 transition cursor-pointer';
+      });
+
+      // 4. Tempo Unit
+      document.getElementById('bpm-unit-label').textContent = ex.meter.type === 'compound' ? '♩. =' : '♩ =';
+      document.getElementById('bpm-slider').value = String(state.bpm);
+      document.getElementById('bpm-val').textContent = String(state.bpm);
+
+      // 5. Header & Sheet Titles (hide key/modulation details in question mode)
+      const isAns = state.sheetMode === 'answer';
+      const clefName = state.singleClef === 'treble' ? '高音譜' : '低音譜';
+      document.getElementById('header-status-badge').textContent = isAns
+        ? `${ex.homeKey.name} → ${ex.modKey.name} · ${state.meter} 拍`
+        : `${state.meter} 拍`;
+      document.getElementById('sheet-main-title').textContent = isSingleMelody
+        ? (isAns ? `單旋律調性聽寫測驗卷（${clefName} · 教師解答卷）` : `單旋律調性聽寫測驗卷（${clefName} · 學生題目卷）`)
+        : (isAns ? '二聲部調性聽寫測驗卷（教師解答卷）' : '二聲部調性聽寫測驗卷（學生題目卷）');
+      const formatBadge = document.getElementById('sheet-format-badge');
+      if (formatBadge) {
+        formatBadge.textContent = isSingleMelody ? `8 小節 · 四行${clefName}單譜表` : '8 小節 · 四行大譜表';
+      }
+      const footerDesc = document.getElementById('sheet-footer-desc');
+      if (footerDesc) {
+        footerDesc.textContent = isSingleMelody
+          ? '作答說明：第 1、8 小節完整提供旋律；第 2–7 小節隨機提供 1 全小節與 2 半小節提示（三拍子與 9/8 拍為兩大拍），其餘由學生聽寫完成。'
+          : '作答說明：第 1、8 小節完整提供高低聲部；第 2–7 小節隨機提供高低音各 1 全小節與 2 半小節提示（三拍子與 9/8 拍為兩大拍），其餘由學生聽寫完成。';
+      }
+      document.getElementById('sheet-code-footer').textContent = `試題編號：${ex.code}`;
+
+      // 6. Answer Roadmap Box
+      const roadBox = document.getElementById('answer-roadmap-box');
+      const isTriple = ex.meter.beats === 3;
+      const fmtHalf = (bIdx, half) => isTriple
+        ? `第${bIdx + 1}小節${half === 'first' ? '前兩拍' : '後兩拍'}`
+        : `第${bIdx + 1}小節${half === 'first' ? '前半' : '後半'}`;
+      const halfUnitLabel = isTriple ? '兩大拍' : '半小節';
+      const sopHintDesc = `全小節：第${ex.hintSpec.sopPlan.fullBar + 1}小節；${halfUnitLabel}：${ex.hintSpec.sopPlan.halfBars.map(b => fmtHalf(b, ex.hintSpec.sopPlan.halfHalves[b])).join('、')}`;
+      const bassHintDesc = `全小節：第${ex.hintSpec.bassPlan.fullBar + 1}小節；${halfUnitLabel}：${ex.hintSpec.bassPlan.halfBars.map(b => fmtHalf(b, ex.hintSpec.bassPlan.halfHalves[b])).join('、')}`;
+
+      if (isAns) {
+        roadBox.classList.remove('hidden');
+        document.getElementById('answer-roadmap-grid').innerHTML = isSingleMelody
+          ? `
+            <div><strong>第 1–2 小節（動機呈示）：</strong>${ex.homeKey.name}主調動機起首並延伸。</div>
+            <div><strong>第 3–4 小節（轉調過渡）：</strong>過渡至 <strong>${ex.modKey.name}</strong> 並建立樂句終止。</div>
+            <div><strong>第 5–6 小節（模進推展）：</strong>動機模進推展並引導回歸主調屬方向。</div>
+            <div><strong>第 7–8 小節（主調終止）：</strong>回到${ex.homeKey.name}完成終止收束。</div>
+            <div class="sm:col-span-4 pt-1 border-t border-indigo-200/70 text-[11px] text-indigo-950"><strong>${clefName}提示配置：</strong>${state.singleClef === 'treble' ? sopHintDesc : bassHintDesc}</div>
+          `
+          : `
+            <div><strong>第 1–2 小節（主調確立與模仿）：</strong>${ex.homeKey.name}動機起首，第 2 小節低音模仿節奏輪廓。</div>
+            <div><strong>第 3–4 小節（平滑遠系轉調）：</strong>透過共同音與導七和弦過渡至 <strong>${ex.modKey.name}</strong>，建立新調性終止。</div>
+            <div><strong>第 5–6 小節（模進推展回歸）：</strong>二聲部動機模進推展並引導和聲轉回主調屬方向。</div>
+            <div><strong>第 7–8 小節（主調完全終止）：</strong>回歸${ex.homeKey.name}完成 V–I 完全正格終止。</div>
+            <div class="sm:col-span-2 pt-1 border-t border-indigo-200/70 text-[11px] text-indigo-950"><strong>高音部提示配置：</strong>${sopHintDesc}</div>
+            <div class="sm:col-span-2 pt-1 border-t border-indigo-200/70 text-[11px] text-indigo-950"><strong>低音部提示配置：</strong>${bassHintDesc}</div>
+          `;
+      } else {
+        roadBox.classList.add('hidden');
+      }
+
+      updateBlockLibrarySummary();
+      if (state.drawerOpen) renderRhythmBlockDrawer();
+      renderGrandStaffScore(ex);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      generateNewExercise();
+    });
+  </script>
+</body>
+</html>
