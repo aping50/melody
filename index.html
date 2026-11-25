@@ -35,6 +35,42 @@
       stroke: #dc2626 !important;
     }
 
+    /* Center Entry Confirmation Card & Masked Exercise Area */
+    .entry-gate-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 45;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      pointer-events: auto;
+    }
+
+    .entry-gate-card {
+      width: min(92vw, 460px);
+      background: #fdfbf7;
+      border: 2px solid #1e293b;
+      border-radius: 1.25rem;
+      padding: 1.5rem;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+      text-align: center;
+    }
+
+    .exercise-content-locked {
+      filter: blur(5px);
+      opacity: 0.42;
+      pointer-events: none;
+      user-select: none;
+      transition: filter 0.25s ease, opacity 0.25s ease;
+    }
+
+    .exercise-content-unlocked {
+      filter: none;
+      opacity: 1;
+      transition: filter 0.25s ease, opacity 0.25s ease;
+    }
+
     /* Print Stylesheet: Clean Conservatory A4 Exam & Answer Sheet */
     @media print {
       @page {
@@ -342,6 +378,24 @@
 
   <!-- Toast Notification Container -->
   <div id="toast-container" class="no-print fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Center Entry Confirmation Layer (Blocks Underlying Exercise Until Confirmed) -->
+  <div id="entry-gate-overlay" class="no-print entry-gate-backdrop" role="dialog" aria-modal="true" aria-labelledby="entry-gate-title">
+    <div class="entry-gate-card space-y-4">
+      <div class="mx-auto w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-950 flex items-center justify-center text-2xl font-score border border-indigo-200">
+        🎼
+      </div>
+      <div class="space-y-1.5">
+        <h2 id="entry-gate-title" class="text-base sm:text-lg font-black text-slate-900">聽寫練習準備提示</h2>
+        <p class="text-xs sm:text-sm font-semibold text-slate-700 leading-relaxed">
+          本星球不提供即時批閱功能，請先準備好五線譜與筆，自行批改。按確認之後進入。
+        </p>
+      </div>
+      <button id="btn-confirm-entry" type="button" onclick="confirmEntryGate()" class="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white text-sm font-extrabold shadow transition cursor-pointer">
+        確認
+      </button>
+    </div>
+  </div>
 
   <script>
     /* =========================================================================
@@ -2728,8 +2782,32 @@
       drawerOpen: false,
       drawerTab: 'simple',
       enabledBlockIds: new Set(RHYTHM_BLOCKS.filter(b => b.defaultOn).map(b => b.id)),
+      entryConfirmed: false,
       exercise: null
     };
+
+    /**
+     * Synchronize the central entry gate overlay and lock state on the exercise content.
+     */
+    function syncEntryGateUI() {
+      const overlay = document.getElementById('entry-gate-overlay');
+      const scoreContainer = document.getElementById('score-container');
+      if (overlay) {
+        overlay.classList.toggle('hidden', state.entryConfirmed);
+      }
+      if (scoreContainer) {
+        scoreContainer.classList.toggle('exercise-content-locked', !state.entryConfirmed);
+        scoreContainer.classList.toggle('exercise-content-unlocked', state.entryConfirmed);
+      }
+    }
+
+    /**
+     * Dismiss the center confirmation gate and unlock the underlying exercise sheet.
+     */
+    function confirmEntryGate() {
+      state.entryConfirmed = true;
+      syncEntryGateUI();
+    }
 
     function showToast(msg) {
       const container = document.getElementById('toast-container');
@@ -3148,6 +3226,7 @@
       updateBlockLibrarySummary();
       if (state.drawerOpen) renderRhythmBlockDrawer();
       renderGrandStaffScore(ex);
+      syncEntryGateUI();
     }
 
     window.addEventListener('DOMContentLoaded', () => {
